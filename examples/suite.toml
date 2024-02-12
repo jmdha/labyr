@@ -1,0 +1,20 @@
+name = "example_suite"
+time_limit = 600
+memory_limit = 3000
+
+[[solvers]]
+name = "lama"
+attributes = "downward"
+path = "engines/fast_downward.sh"
+
+[[attributes]]
+name = "downward"
+patterns = [
+    { name = "total_time", pattern = "Total time: ([[0-9]|.]*)" },
+    { name = "search_time", pattern = "Search time: ([[0-9]|.]*)" },
+]
+
+[[tasks]]
+name = "blocksworld"
+domain = "blocksworld/domain.pddl"
+problems = "blocksworld/problem.pddl"

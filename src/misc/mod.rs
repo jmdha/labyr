@@ -5,26 +5,33 @@ pub mod path_set {
     use log::trace;
     use serde::{Deserialize, Deserializer};
 
+    fn glob_vec(pattern: &str) -> Vec<PathBuf> {
+        glob(pattern).unwrap().map(|r| r.unwrap()).collect()
+    }
+
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<PathBuf>, D::Error>
     where
         D: Deserializer<'de>,
     {
         let s: String = String::deserialize(deserializer)?;
         trace!("Globbing {}", &s);
-        let files = glob(&s)
-            .unwrap()
-            .filter_map(|p| {
-                let path = match p.is_ok() {
-                    true => p.unwrap(),
-                    false => return None,
-                };
-                match path.is_file() {
-                    true => Some(path),
-                    false => return None,
-                }
-            })
-            .collect();
-        Ok(files)
+        Ok(glob_vec(&s))
+    }
+}
+
+pub mod abs_path {
+    use std::path::PathBuf;
+
+    use log::trace;
+    use serde::{Deserialize, Deserializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<PathBuf, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let path: PathBuf = PathBuf::deserialize(deserializer)?;
+        trace!("Canonicalizing {:?}", path);
+        Ok(path.canonicalize().unwrap())
     }
 }
 

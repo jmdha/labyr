@@ -1,8 +1,8 @@
-use crate::misc::path_set;
-use crate::misc::regex_pattern;
+use crate::misc::{abs_path, path_set, regex_pattern};
 use log::{info, trace, warn};
 use regex::Regex;
 use serde::Deserialize;
+use std::env;
 use std::{fs, path::PathBuf};
 
 #[derive(Deserialize)]
@@ -27,6 +27,7 @@ pub struct Task {
 pub struct Solver {
     pub name: String,
     pub attributes: String,
+    #[serde(with = "abs_path")]
     pub path: PathBuf,
 }
 
@@ -56,8 +57,14 @@ impl Suite {
 pub fn generate_suite(path: &PathBuf) -> Result<Suite, Box<dyn std::error::Error>> {
     trace!("Reading suite file at {:?}", &path);
     let suite_content = fs::read_to_string(path)?;
+    let working_dir = env::current_dir().unwrap();
+    let temp_dir = path.parent().unwrap();
+    trace!("Setting working dir to {:?}", temp_dir);
+    let _ = env::set_current_dir(temp_dir);
     trace!("Parsing suite");
     let suite: Suite = toml::from_str(&suite_content)?;
+    trace!("Resetting dir to {:?}", working_dir);
+    let _ = env::set_current_dir(working_dir);
     info!("Suite name: {}", suite.name);
     info!("Suite time limit: {}s", suite.time_limit);
     info!("Suite memory limit: {}miB", suite.memory_limit);

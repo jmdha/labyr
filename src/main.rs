@@ -98,7 +98,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for attributes in suite.attributes.iter() {
         let mut file = File::create(args.result_dir.join(&attributes.name))?;
         let header = format!(
-            "id,domain,problem,solver,exit_code,execution_time{}",
+            "id,domain,problem,solver,exit_code,solved,execution_time{}",
             attributes
                 .patterns
                 .iter()
@@ -116,12 +116,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
         let file: &mut File = results.get_mut(&attributes.name).unwrap();
         let row = format!(
-            "{},{},{},{},{},{}{}\n",
+            "{},{},{},{},{},{},{}{}\n",
             instance.id,
             instance.domain,
             instance.problem,
             instance.solver,
             status.code().unwrap(),
+            status.code().unwrap() == 0,
             execution_time.as_millis(),
             attributes
                 .patterns
