@@ -3,9 +3,10 @@ time_limit = 600
 memory_limit = 3000
 
 [[solvers]]
-name = "lama"
+name = "lama-first"
 attributes = "downward"
 path = "engines/fast_downward.sh"
+args = ["lama-first"]
 
 [[attributes]]
 name = "downward"

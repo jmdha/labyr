@@ -6,7 +6,11 @@ pub mod path_set {
     use serde::{Deserialize, Deserializer};
 
     fn glob_vec(pattern: &str) -> Vec<PathBuf> {
-        glob(pattern).unwrap().map(|r| r.unwrap()).collect()
+        glob(pattern)
+            .unwrap()
+            .map(|r| r.unwrap())
+            .map(|p| p.canonicalize().unwrap())
+            .collect()
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<PathBuf>, D::Error>

@@ -1,6 +1,7 @@
 mod misc;
 mod setup;
 
+use crate::setup::suite::Attributes;
 use clap::Parser;
 use env_logger::Env;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -10,18 +11,14 @@ use pretty_duration::pretty_duration;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use setup::setup;
 use setup::suite::generate_suite;
+use std::io::Write;
 use std::{
     collections::HashMap,
     fs::File,
-    io::Write,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
-    str,
-    thread::sleep,
-    time::{Duration, Instant},
+    process::Command,
+    time::Instant,
 };
-
-use crate::setup::suite::Attributes;
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -34,11 +31,6 @@ struct Args {
 
     #[arg(short, long, required = false, default_value_t = 1)]
     threads: usize,
-
-    /// By default the program waits 3s after setup, in case user wants to cancel.
-    /// If this flag is given, this wait is skipped
-    #[arg(short, long)]
-    skip_delay: bool,
 
     #[arg(required = true)]
     suite: PathBuf,
@@ -56,12 +48,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     trace!("Generate setup");
     let instances = setup(&suite, &args.working_dir, args.threads)?;
     let width = ((instances.len() as f64).log10()).ceil() as usize;
-
-    // In case something happended in setup
-    if !args.skip_delay {
-        info!("If any warnings given, consider stopping program. Program will continue in 3s");
-        sleep(Duration::from_secs(3));
-    }
 
     let pg = ProgressBar::new(instances.len() as u64);
     pg.set_style(
@@ -85,7 +71,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             width = width,
         );
         let mut log_file = File::create(Path::new(&instance.dir).join("log")).unwrap();
-        let output = str::from_utf8(&output.stdout).unwrap().to_owned();
+        let output = std::str::from_utf8(&output.stdout).unwrap().to_owned();
         let _ = write!(log_file, "{}", output);
         pg.inc(1);
         (instance, output, status, execution_time)

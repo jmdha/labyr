@@ -56,6 +56,7 @@ pub fn generate_instances<'a>(
                     run_time,
                     &dir,
                     &solver.path,
+                    &solver.args,
                     &task.domain,
                     problem,
                 )?;
@@ -80,6 +81,7 @@ fn generate_runner(
     run_time: usize,
     dir: &PathBuf,
     solver_path: &PathBuf,
+    args: &Vec<String>,
     domain: &PathBuf,
     problem: &PathBuf,
 ) -> Result<PathBuf, Box<dyn std::error::Error>> {
@@ -87,10 +89,11 @@ fn generate_runner(
     let runner = format!(
         "#!/bin/bash
 ulimit -v {}
-timeout {}s {} {:?} {:?} plan",
+timeout {}s {} plan {} {:?} {:?}",
         memory_limit * 1000,
         run_time,
         solver_path.to_str().unwrap(),
+        args.iter().map(|a| format!(" {}", a)).collect::<String>(),
         domain,
         problem
     );

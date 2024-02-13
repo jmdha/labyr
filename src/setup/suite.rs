@@ -18,6 +18,7 @@ pub struct Suite {
 #[derive(Deserialize)]
 pub struct Task {
     pub name: String,
+    #[serde(with = "abs_path")]
     pub domain: PathBuf,
     #[serde(with = "path_set")]
     pub problems: Vec<PathBuf>,
@@ -29,6 +30,7 @@ pub struct Solver {
     pub attributes: String,
     #[serde(with = "abs_path")]
     pub path: PathBuf,
+    pub args: Vec<String>,
 }
 
 #[derive(Deserialize)]

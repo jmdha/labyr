@@ -1,7 +1,9 @@
 #!/bin/bash
 
-DOMAIN="$1"
-PROBLEM="$2"
-PLAN_OUT="$3"
+OUT="$1"
+ALIAS="$2"
+DOMAIN="$3"
+PROBLEM="$4"
 
-fast-downward.py --plan-file ${PLAN_OUT} --alias lama ${DOMAIN} ${PROBLEM}
+# Assumes that fast-downward.py is aliased as downward
+fast-downward.py --plan-file ${OUT} --alias ${ALIAS} ${DOMAIN} ${PROBLEM}
