@@ -2,6 +2,11 @@
 name = "labyr"
 version = "0.1.0"
 edition = "2021"
+authors = ["Jan M. D. Hansen"]
+license = "GPL-3.0-only"
+license-file = "LICENSE"
+repository = "https://github.com/jamadaha/labyr"
+description = "A PDDL benchmarker"
 
 [dependencies]
 chrono = "0.4.33"
