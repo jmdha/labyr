@@ -80,6 +80,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     pg.finish();
     progresser.remove(&pg);
 
+    let mut combined_file = File::create(args.result_dir.join("all"))?;
+    write!(
+        combined_file,
+        "id,domain,problem,solver,exit_code,solved,execution_time\n"
+    )?;
     let mut results: HashMap<String, File> = HashMap::new();
     for attributes in suite.attributes.iter() {
         let mut file = File::create(args.result_dir.join(&attributes.name))?;
@@ -102,14 +107,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
         let file: &mut File = results.get_mut(&attributes.name).unwrap();
         let row = format!(
-            "{},{},{},{},{},{},{}{}\n",
+            "{},{},{},{},{},{},{}",
             instance.id,
             instance.domain,
             instance.problem,
             instance.solver,
             status.code().unwrap(),
             status.code().unwrap() == 0,
-            execution_time.as_millis(),
+            execution_time.as_secs_f64(),
+        );
+        write!(combined_file, "{}\n", row)?;
+        let row = format!(
+            "{}{}",
+            row,
             attributes
                 .patterns
                 .iter()
@@ -122,7 +132,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ))
                 .collect::<String>()
         );
-        write!(file, "{}", row)?;
+        write!(file, "{}\n", row)?;
     }
 
     Ok(())
