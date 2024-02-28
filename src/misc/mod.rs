@@ -1,3 +1,4 @@
+pub mod logging;
 pub mod path_set {
     use std::path::PathBuf;
 
