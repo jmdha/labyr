@@ -11,8 +11,8 @@ args = ["lama-first"]
 [[attributes]]
 name = "downward"
 patterns = [
-    { name = "total_time", pattern = "Total time: ([[0-9]|.]*)" },
-    { name = "search_time", pattern = "Search time: ([[0-9]|.]*)" },
+    { name = "total_time", pattern = "Total time: ([0-9.]*)" },
+    { name = "search_time", pattern = "Search time: ([0-9.]*)" },
 ]
 
 [[tasks]]
