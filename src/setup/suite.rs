@@ -11,6 +11,7 @@ pub struct Suite {
     pub time_limit: usize,
     pub memory_limit: usize,
     pub attributes: Vec<Attributes>,
+    pub learners: Vec<Learner>,
     pub solvers: Vec<Solver>,
     pub tasks: Vec<Task>,
 }
@@ -21,7 +22,18 @@ pub struct Task {
     #[serde(with = "abs_path")]
     pub domain: PathBuf,
     #[serde(with = "path_set")]
-    pub problems: Vec<PathBuf>,
+    pub problems_training: Vec<PathBuf>,
+    #[serde(with = "path_set")]
+    pub problems_testing: Vec<PathBuf>,
+}
+
+#[derive(Deserialize)]
+pub struct Learner {
+    pub name: String,
+    pub attributes: String,
+    #[serde(with = "abs_path")]
+    pub path: PathBuf,
+    pub args: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -31,6 +43,7 @@ pub struct Solver {
     #[serde(with = "abs_path")]
     pub path: PathBuf,
     pub args: Vec<String>,
+    pub learner: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -47,8 +60,18 @@ pub struct Pattern {
 }
 
 impl Suite {
-    pub fn total_problems(&self) -> usize {
-        self.tasks.iter().map(|s| s.problems.len()).sum::<usize>()
+    pub fn total_training_problems(&self) -> usize {
+        self.tasks
+            .iter()
+            .map(|s| s.problems_training.len())
+            .sum::<usize>()
+    }
+
+    pub fn total_testing_problems(&self) -> usize {
+        self.tasks
+            .iter()
+            .map(|s| s.problems_testing.len())
+            .sum::<usize>()
     }
 
     pub fn get_attributes(&self, name: &str) -> Option<&Attributes> {
@@ -78,12 +101,21 @@ pub fn generate_suite(path: &PathBuf) -> Result<Suite, Box<dyn std::error::Error
         "Domains: {:?}",
         suite.tasks.iter().map(|s| &s.name).collect::<Vec<_>>()
     );
-    info!("Total problems: {}", suite.total_problems());
+    info!(
+        "Total training problems: {}",
+        suite.total_training_problems()
+    );
+    info!("Total testing problems: {}", suite.total_testing_problems());
     suite
-        .tasks
+        .learners
         .iter()
-        .filter(|t| t.problems.is_empty())
-        .for_each(|t| warn!("Task {} contains 0 problems", &t.name));
+        .filter(|t| suite.get_attributes(&t.attributes).is_none())
+        .for_each(|s| {
+            warn!(
+                "Learner {} attributes {} doesn't exist",
+                s.name, s.attributes
+            )
+        });
     suite
         .solvers
         .iter()

@@ -2,6 +2,7 @@ use super::{Result, Runner};
 use crate::{misc::logging::ProgressBar, setup::generation::Instance};
 use log::info;
 use pretty_duration::pretty_duration;
+use rayon::iter::IndexedParallelIterator;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 use std::io::Write;
@@ -34,7 +35,12 @@ impl Runner for Local {
             (instance, output, status, execution_time)
         });
         commands
-            .map(|c| Result::extract(c.0, c.2, c.3, c.1))
+            .enumerate()
+            .map(|(i, a)| Result {
+                id: i,
+                exit_status: a.2,
+                time: a.3,
+            })
             .collect()
     }
 }

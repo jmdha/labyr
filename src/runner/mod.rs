@@ -26,47 +26,8 @@ pub fn generate(args: &Args) -> Box<dyn Runner> {
 }
 
 #[derive(Debug)]
-pub struct Result<'a> {
-    pub id: String,
-    pub domain: &'a str,
-    pub problem: &'a str,
-    pub solver: &'a str,
+pub struct Result {
+    pub id: usize,
     pub exit_status: ExitStatus,
     pub time: Duration,
-    pub attributes: HashMap<String, String>,
-}
-
-impl<'a> Result<'a> {
-    pub fn extract(
-        instance: Instance<'a>,
-        status: ExitStatus,
-        time: Duration,
-        out: String,
-    ) -> Self {
-        let attributes = match instance.attributes {
-            Some(att) => att
-                .patterns
-                .iter()
-                .map(|pattern| {
-                    (
-                        pattern.name.to_owned(),
-                        match pattern.pattern.captures(&out) {
-                            Some(c) => c[1].to_string(),
-                            None => "".to_string(),
-                        },
-                    )
-                })
-                .collect::<HashMap<String, String>>(),
-            None => HashMap::new(),
-        };
-        Self {
-            id: instance.id,
-            domain: instance.domain,
-            problem: instance.problem,
-            solver: instance.solver,
-            exit_status: status,
-            time,
-            attributes,
-        }
-    }
 }

@@ -2,16 +2,17 @@ pub mod generation;
 pub mod suite;
 
 use self::generation::generate_instances;
-use self::generation::Instance;
+use self::generation::Instances;
 use self::suite::Suite;
 use log::trace;
+use std::error::Error;
 use std::path::PathBuf;
 
 pub fn setup<'a>(
     suite: &'a Suite,
     working_dir: &'a PathBuf,
     threads: usize,
-) -> Result<Vec<Instance<'a>>, Box<dyn std::error::Error>> {
+) -> Result<Instances<'a>, Box<dyn Error>> {
     trace!("Building thread pool");
     rayon::ThreadPoolBuilder::new()
         .num_threads(threads)

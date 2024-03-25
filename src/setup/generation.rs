@@ -1,31 +1,25 @@
-use super::suite::Attributes;
-use super::suite::Suite;
-use log::info;
-use log::trace;
-use std::process::Command;
-use std::{fs, path::PathBuf};
+use super::suite::{Attributes, Suite};
+use itertools::Itertools;
+use log::{info, trace};
+use std::{error::Error, fs, path::PathBuf, process::Command};
 
-pub struct Instance<'a> {
-    pub id: String,
-    pub domain: &'a str,
-    pub problem: &'a str,
-    pub solver: &'a str,
-    pub attributes: Option<&'a Attributes>,
-    pub dir: PathBuf,
-    pub exe: PathBuf,
+pub enum InstanceKind<'a> {
+    Learner,
+    Solver { problem: &'a str },
 }
 
-fn generate_dir_iter(
-    dir: &PathBuf,
-    count: usize,
-) -> impl Iterator<Item = std::string::String> + '_ {
-    let width = ((count as f64).log10()).ceil() as usize;
-    trace!("Width: {}", width);
-    (0..count).into_iter().map(move |i| {
-        let dir_name = format!("{:0>width$}", i, width = width);
-        let _ = fs::create_dir_all(dir.join(&dir_name));
-        dir_name
-    })
+pub struct Instance<'a> {
+    pub name: &'a str,
+    pub exe: PathBuf,
+    pub dir: PathBuf,
+    pub attributes: Option<&'a Attributes>,
+    pub domain: &'a str,
+    pub kind: InstanceKind<'a>,
+}
+
+pub struct Instances<'a> {
+    pub learners: Vec<Instance<'a>>,
+    pub solvers: Vec<Instance<'a>>,
 }
 
 pub fn generate_instances<'a>(
@@ -33,44 +27,96 @@ pub fn generate_instances<'a>(
     run_time: usize,
     working_dir: &PathBuf,
     suite: &'a Suite,
-) -> Result<Vec<Instance<'a>>, Box<dyn std::error::Error>> {
+) -> Result<Instances<'a>, Box<dyn Error>> {
     trace!("Generating working dir");
     let time_stamp = chrono::offset::Local::now().to_utc().to_string();
+    let time_stamp = time_stamp.replace(" ", "");
     trace!("Time stamp: {}", time_stamp);
     let working_dir = working_dir
         .join(&suite.name)
         .join(PathBuf::from(time_stamp));
     info!("Using working dir: {:?}", &working_dir);
-    let instance_count = suite.solvers.len() * suite.total_problems();
-    info!("Instance count: {}", instance_count);
-    let mut dirs = generate_dir_iter(&working_dir, instance_count);
+    let learner_dir = working_dir.join("learner");
+    let solver_dir = working_dir.join("solver");
+    let learners = generate_learners(memory_limit, run_time, &learner_dir, suite)?;
+    let solvers = generate_solvers(memory_limit, run_time, &solver_dir, suite, &learners)?;
+    Ok(Instances { learners, solvers })
+}
 
+fn generate_learners<'a>(
+    memory_limit: usize,
+    run_time: usize,
+    working_dir: &PathBuf,
+    suite: &'a Suite,
+) -> Result<Vec<Instance<'a>>, Box<dyn Error>> {
+    trace!("Generating learners");
     let mut instances = vec![];
-    for task in suite.tasks.iter() {
-        for problem in task.problems.iter() {
-            for solver in suite.solvers.iter() {
-                let dir: PathBuf = dirs.next().unwrap().into();
-                let dir: PathBuf = working_dir.join(dir);
-                let runner = generate_runner(
-                    memory_limit,
-                    run_time,
-                    &dir,
-                    &solver.path,
-                    &solver.args,
-                    &task.domain,
-                    problem,
-                )?;
-                let id = dir.file_stem().unwrap().to_str().unwrap().to_owned();
-                instances.push(Instance {
-                    id,
-                    domain: &task.name,
-                    problem: problem.file_stem().unwrap().to_str().unwrap(),
-                    solver: &solver.name,
-                    attributes: suite.get_attributes(&solver.attributes),
-                    dir,
-                    exe: runner,
-                });
+    for (i, (task, learner)) in suite
+        .tasks
+        .iter()
+        .cartesian_product(suite.learners.iter())
+        .enumerate()
+    {
+        let dir = working_dir.join(format!("{}", i));
+        let mut args = learner.args.to_owned();
+        args.push(task.domain.to_str().unwrap().to_owned());
+        for problem in task.problems_training.iter() {
+            args.push(problem.to_str().unwrap().to_owned());
+        }
+        let runner = generate_runner(memory_limit, run_time, &dir, &learner.path, &args)?;
+        instances.push(Instance {
+            name: &learner.name,
+            exe: runner,
+            dir,
+            attributes: suite.get_attributes(&learner.attributes),
+            domain: &task.name,
+            kind: InstanceKind::Learner,
+        });
+    }
+    Ok(instances)
+}
+
+fn generate_solvers<'a>(
+    memory_limit: usize,
+    run_time: usize,
+    working_dir: &PathBuf,
+    suite: &'a Suite,
+    learners: &Vec<Instance<'a>>,
+) -> Result<Vec<Instance<'a>>, Box<dyn Error>> {
+    trace!("Generating solvers");
+    let mut instances = vec![];
+    let mut i = 0;
+    for (task, solver) in suite.tasks.iter().cartesian_product(suite.solvers.iter()) {
+        let learner = match &solver.learner {
+            Some(learner) => Some(
+                learners
+                    .iter()
+                    .position(|l| learner == l.name && task.name == l.domain)
+                    .unwrap(),
+            ),
+            None => None,
+        };
+        for problem in task.problems_testing.iter() {
+            let dir = working_dir.join(format!("{}", i));
+            let mut args = vec![];
+            if let Some(learner) = learner {
+                args.push(learners[learner].dir.to_str().unwrap().to_owned());
             }
+            args.append(&mut solver.args.to_owned());
+            args.push(task.domain.to_str().unwrap().to_owned());
+            args.push(problem.to_str().unwrap().to_owned());
+            let runner = generate_runner(memory_limit, run_time, &dir, &solver.path, &args)?;
+            instances.push(Instance {
+                name: &solver.name,
+                exe: runner,
+                dir,
+                attributes: suite.get_attributes(&solver.attributes),
+                domain: &task.name,
+                kind: InstanceKind::Solver {
+                    problem: problem.to_str().unwrap(),
+                },
+            });
+            i += 1;
         }
     }
     Ok(instances)
@@ -80,25 +126,23 @@ fn generate_runner(
     memory_limit: usize,
     run_time: usize,
     dir: &PathBuf,
-    solver_path: &PathBuf,
+    exe: &PathBuf,
     args: &Vec<String>,
-    domain: &PathBuf,
-    problem: &PathBuf,
-) -> Result<PathBuf, Box<dyn std::error::Error>> {
+) -> Result<PathBuf, Box<dyn Error>> {
     fs::create_dir_all(&dir)?;
-    let runner = format!(
+    let content = format!(
         "#!/bin/bash
-ulimit -v {}
-timeout {}s {} plan {} {:?} {:?}",
+ulimit -m {}
+timeout {}s {} plan{}",
         memory_limit * 1000,
         run_time,
-        solver_path.to_str().unwrap(),
-        args.iter().map(|a| format!(" {}", a)).collect::<String>(),
-        domain,
-        problem
+        exe.to_str().unwrap(),
+        args.iter()
+            .map(|arg| format!(" {}", arg))
+            .collect::<String>()
     );
     let runner_path = dir.join("runner.sh");
-    fs::write(&runner_path, runner)?;
+    fs::write(&runner_path, content)?;
     let mut cmd = Command::new("chmod");
     cmd.arg("u+x");
     cmd.arg(&runner_path);
