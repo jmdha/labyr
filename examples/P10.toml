@@ -1,0 +1,35 @@
+name = "P10"
+time_limit_solve = 300
+memory_limit_solve = 4000
+
+[[learners]]
+name = "predicate"
+path = "learners/P10.sh"
+args = ["PredicateMetaActions"]
+attributes = ""
+
+[[solvers]]
+name = "predicate"
+path = "solvers/P10.sh"
+args = ["lama-first"]
+attributes = "downward"
+learner = "predicate"
+
+[[attributes]]
+name = "downward"
+patterns = [
+    { name = "total_time", pattern = "Total time: ([0-9.]*)" },
+    { name = "search_time", pattern = "Search time: ([0-9.]*)" },
+]
+
+[[tasks]]
+name = "ferry"
+domain = "~/PDDL/ferry/domain.pddl"
+problems_training = "~/PDDL/ferry/training/*/p0*.pddl"
+problems_testing = "~/PDDL/ferry/testing/*/*.pddl"
+
+[[tasks]]
+name = "miconic"
+domain = "~/PDDL/miconic/domain.pddl"
+problems_training = "~/PDDL/miconic/training/*/p0*.pddl"
+problems_testing = "~/PDDL/miconic/testing/*/*.pddl"
