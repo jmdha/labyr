@@ -37,14 +37,14 @@ pub fn generate_instances<'a>(
     let learner_dir = working_dir.join("learner");
     let solver_dir = working_dir.join("solver");
     let learners = generate_learners(
-        suite.memory_limit_learn,
         suite.time_limit_learn,
+        suite.memory_limit_learn,
         &learner_dir,
         suite,
     )?;
     let solvers = generate_solvers(
-        suite.memory_limit_solve,
         suite.time_limit_solve,
+        suite.memory_limit_solve,
         &solver_dir,
         suite,
         &learners,
@@ -72,7 +72,7 @@ fn generate_learners<'a>(
         for problem in task.problems_training.iter() {
             args.push(problem.to_str().unwrap().to_owned());
         }
-        let runner = generate_runner(memory_limit, time_limit, &dir, &learner.path, &args)?;
+        let runner = generate_runner(time_limit, memory_limit, &dir, &learner.path, &args)?;
         instances.push(Instance {
             name: &learner.name,
             exe: runner,
@@ -86,8 +86,8 @@ fn generate_learners<'a>(
 }
 
 fn generate_solvers<'a>(
+    time_limit: Option<usize>,
     memory_limit: Option<usize>,
-    run_time: Option<usize>,
     working_dir: &PathBuf,
     suite: &'a Suite,
     learners: &Vec<Instance<'a>>,
@@ -114,7 +114,7 @@ fn generate_solvers<'a>(
             args.append(&mut solver.args.to_owned());
             args.push(task.domain.to_str().unwrap().to_owned());
             args.push(problem.to_str().unwrap().to_owned());
-            let runner = generate_runner(memory_limit, run_time, &dir, &solver.path, &args)?;
+            let runner = generate_runner(time_limit, memory_limit, &dir, &solver.path, &args)?;
             instances.push(Instance {
                 name: &solver.name,
                 exe: runner,
