@@ -11,7 +11,7 @@ use std::{fs::File, path::Path, process::Command, time::Instant};
 pub struct Local {}
 
 impl Runner for Local {
-    fn run<'a>(&'a self, instances: Vec<Instance<'a>>) -> Vec<Result> {
+    fn run<'a>(&'a self, instances: &Vec<Instance<'a>>) -> Vec<Result> {
         let width = ((instances.len() as f64).log10()).ceil() as usize;
         let pg = ProgressBar::new(instances.len());
         let commands = instances.into_par_iter().map(|instance| {
@@ -36,11 +36,7 @@ impl Runner for Local {
         });
         commands
             .enumerate()
-            .map(|(i, a)| Result {
-                id: i,
-                exit_status: a.2,
-                time: a.3,
-            })
+            .map(|(i, a)| Result::extract(a.0, i, a.2, a.3, a.1))
             .collect()
     }
 }
