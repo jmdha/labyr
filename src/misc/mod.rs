@@ -18,8 +18,11 @@ pub mod path_set {
     where
         D: Deserializer<'de>,
     {
-        let s: String = String::deserialize(deserializer)?;
+        let mut s: String = String::deserialize(deserializer)?;
         trace!("Globbing {}", &s);
+        if s.chars().next().unwrap() == '~' {
+            s = s.replace('~', std::env::home_dir().unwrap().to_str().unwrap());
+        }
         Ok(glob_vec(&s))
     }
 }
@@ -34,7 +37,12 @@ pub mod abs_path {
     where
         D: Deserializer<'de>,
     {
-        let path: PathBuf = PathBuf::deserialize(deserializer)?;
+        let mut path: PathBuf = PathBuf::deserialize(deserializer)?;
+        if path.to_str().unwrap().chars().next().unwrap() == '~' {
+            let t_path = path.to_str().unwrap();
+            let t_path = t_path.replace('~', std::env::home_dir().unwrap().to_str().unwrap());
+            path = PathBuf::from(t_path);
+        }
         trace!("Canonicalizing {:?}", path);
         Ok(path.canonicalize().unwrap())
     }
