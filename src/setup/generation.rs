@@ -23,8 +23,6 @@ pub struct Instances<'a> {
 }
 
 pub fn generate_instances<'a>(
-    memory_limit: usize,
-    run_time: usize,
     working_dir: &PathBuf,
     suite: &'a Suite,
 ) -> Result<Instances<'a>, Box<dyn Error>> {
@@ -38,14 +36,25 @@ pub fn generate_instances<'a>(
     info!("Using working dir: {:?}", &working_dir);
     let learner_dir = working_dir.join("learner");
     let solver_dir = working_dir.join("solver");
-    let learners = generate_learners(memory_limit, run_time, &learner_dir, suite)?;
-    let solvers = generate_solvers(memory_limit, run_time, &solver_dir, suite, &learners)?;
+    let learners = generate_learners(
+        suite.memory_limit_learn,
+        suite.time_limit_learn,
+        &learner_dir,
+        suite,
+    )?;
+    let solvers = generate_solvers(
+        suite.memory_limit_solve,
+        suite.time_limit_solve,
+        &solver_dir,
+        suite,
+        &learners,
+    )?;
     Ok(Instances { learners, solvers })
 }
 
 fn generate_learners<'a>(
-    memory_limit: usize,
-    run_time: usize,
+    time_limit: Option<usize>,
+    memory_limit: Option<usize>,
     working_dir: &PathBuf,
     suite: &'a Suite,
 ) -> Result<Vec<Instance<'a>>, Box<dyn Error>> {
@@ -63,7 +72,7 @@ fn generate_learners<'a>(
         for problem in task.problems_training.iter() {
             args.push(problem.to_str().unwrap().to_owned());
         }
-        let runner = generate_runner(memory_limit, run_time, &dir, &learner.path, &args)?;
+        let runner = generate_runner(memory_limit, time_limit, &dir, &learner.path, &args)?;
         instances.push(Instance {
             name: &learner.name,
             exe: runner,
@@ -77,8 +86,8 @@ fn generate_learners<'a>(
 }
 
 fn generate_solvers<'a>(
-    memory_limit: usize,
-    run_time: usize,
+    memory_limit: Option<usize>,
+    run_time: Option<usize>,
     working_dir: &PathBuf,
     suite: &'a Suite,
     learners: &Vec<Instance<'a>>,
@@ -123,24 +132,28 @@ fn generate_solvers<'a>(
 }
 
 fn generate_runner(
-    memory_limit: usize,
-    run_time: usize,
+    time_limit: Option<usize>,
+    memory_limit: Option<usize>,
     dir: &PathBuf,
     exe: &PathBuf,
     args: &Vec<String>,
 ) -> Result<PathBuf, Box<dyn Error>> {
     fs::create_dir_all(&dir)?;
-    let content = format!(
-        "#!/bin/bash
-ulimit -m {}
-timeout {}s {} plan{}",
-        memory_limit * 1000,
-        run_time,
+    let mut content = "#!/bin/bash\n".to_owned();
+    if let Some(mem) = memory_limit {
+        content.push_str(&format!("ulimit -v {}\n", mem * 1000));
+    }
+    content.push_str(&format!("ulimit -a\n"));
+    if let Some(time) = time_limit {
+        content.push_str(&format!("timeout {}s ", time));
+    }
+    content.push_str(&format!(
+        "{} plan{}",
         exe.to_str().unwrap(),
         args.iter()
             .map(|arg| format!(" {}", arg))
             .collect::<String>()
-    );
+    ));
     let runner_path = dir.join("runner.sh");
     fs::write(&runner_path, content)?;
     let mut cmd = Command::new("chmod");

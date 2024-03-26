@@ -8,8 +8,10 @@ use std::{fs, path::PathBuf};
 #[derive(Deserialize)]
 pub struct Suite {
     pub name: String,
-    pub time_limit: usize,
-    pub memory_limit: usize,
+    pub time_limit_learn: Option<usize>,
+    pub memory_limit_learn: Option<usize>,
+    pub time_limit_solve: Option<usize>,
+    pub memory_limit_solve: Option<usize>,
     pub attributes: Vec<Attributes>,
     pub learners: Vec<Learner>,
     pub solvers: Vec<Solver>,
@@ -91,8 +93,6 @@ pub fn generate_suite(path: &PathBuf) -> Result<Suite, Box<dyn std::error::Error
     trace!("Resetting dir to {:?}", working_dir);
     let _ = env::set_current_dir(working_dir);
     info!("Suite name: {}", suite.name);
-    info!("Suite time limit: {}s", suite.time_limit);
-    info!("Suite memory limit: {}miB", suite.memory_limit);
     info!(
         "Solvers: {:?}",
         suite.solvers.iter().map(|s| &s.name).collect::<Vec<_>>()
