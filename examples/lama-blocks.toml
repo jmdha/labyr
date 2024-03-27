@@ -24,4 +24,5 @@ patterns = [
 [[tasks]]
 name = "blocksworld"
 domain = "blocksworld/domain.pddl"
-problems = "blocksworld/problem.pddl"
+problems_training = "blocksworld/problem.pddl"
+problems_testing = "blocksworld/problem.pddl"
