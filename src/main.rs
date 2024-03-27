@@ -6,7 +6,7 @@ use crate::{misc::logging, setup::setup};
 use clap::Parser;
 use itertools::Itertools;
 use log::trace;
-use path_clean::clean;
+use path_absolutize::*;
 use runner::RunnerKind;
 use setup::suite::generate_suite;
 use std::{error::Error, fs::File, io::Write, path::PathBuf};
@@ -32,17 +32,11 @@ struct Args {
 
 fn main() -> Result<(), Box<dyn Error>> {
     logging::init();
+    trace!("Parsing args");
     let args = Args::parse();
-    let working_dir = clean(&args.working_dir);
-    let working_dir = match working_dir.is_absolute() {
-        true => working_dir,
-        false => working_dir.canonicalize()?,
-    };
-    let out_file = clean(&args.out);
-    let out_file = match out_file.is_absolute() {
-        true => out_file,
-        false => out_file.canonicalize()?,
-    };
+    trace!("Cleaning working dir");
+    let working_dir = args.working_dir.to_owned().absolutize()?.to_path_buf();
+    let out_file = args.out.to_owned().absolutize()?.to_path_buf();
     trace!("Load data");
     let suite = generate_suite(&args.suite)?;
     trace!("Setting up");
