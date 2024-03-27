@@ -30,9 +30,7 @@ pub fn generate_instances<'a>(
     let time_stamp = chrono::offset::Local::now().to_utc().to_string();
     let time_stamp = time_stamp.replace(" ", "");
     trace!("Time stamp: {}", time_stamp);
-    let working_dir = working_dir
-        .join(&suite.name)
-        .join(PathBuf::from(time_stamp));
+    let working_dir = working_dir.join(PathBuf::from(time_stamp));
     info!("Using working dir: {:?}", &working_dir);
     let learner_dir = working_dir.join("learner");
     let solver_dir = working_dir.join("solver");

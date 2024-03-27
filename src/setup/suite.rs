@@ -7,7 +7,6 @@ use std::{fs, path::PathBuf};
 
 #[derive(Deserialize)]
 pub struct Suite {
-    pub name: String,
     pub time_limit_learn: Option<usize>,
     pub memory_limit_learn: Option<usize>,
     pub time_limit_solve: Option<usize>,
@@ -92,7 +91,6 @@ pub fn generate_suite(path: &PathBuf) -> Result<Suite, Box<dyn std::error::Error
     let suite: Suite = toml::from_str(&suite_content)?;
     trace!("Resetting dir to {:?}", working_dir);
     let _ = env::set_current_dir(working_dir);
-    info!("Suite name: {}", suite.name);
     info!(
         "Solvers: {:?}",
         suite.solvers.iter().map(|s| &s.name).collect::<Vec<_>>()
