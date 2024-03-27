@@ -1,6 +1,7 @@
 use super::{Result, Runner};
 use crate::{misc::logging::ProgressBar, setup::generation::Instance};
 use log::info;
+use log::trace;
 use pretty_duration::pretty_duration;
 use rayon::iter::IndexedParallelIterator;
 use rayon::iter::IntoParallelIterator;
@@ -18,6 +19,7 @@ impl Runner for Local {
             let mut command = Command::new(&instance.exe);
             command.current_dir(&instance.dir);
             let t = Instant::now();
+            trace!("Running command {:?}", command);
             let output = command.output().expect("failed to spawn command");
             let execution_time = t.elapsed();
             let status = output.status;

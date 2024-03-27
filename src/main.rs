@@ -6,6 +6,7 @@ use crate::{misc::logging, setup::setup};
 use clap::Parser;
 use itertools::Itertools;
 use log::trace;
+use path_clean::clean;
 use runner::RunnerKind;
 use setup::suite::generate_suite;
 use std::{error::Error, fs::File, io::Write, path::PathBuf};
@@ -32,10 +33,20 @@ struct Args {
 fn main() -> Result<(), Box<dyn Error>> {
     logging::init();
     let args = Args::parse();
+    let working_dir = clean(&args.working_dir);
+    let working_dir = match working_dir.is_absolute() {
+        true => working_dir,
+        false => working_dir.canonicalize()?,
+    };
+    let out_file = clean(&args.out);
+    let out_file = match out_file.is_absolute() {
+        true => out_file,
+        false => out_file.canonicalize()?,
+    };
     trace!("Load data");
     let suite = generate_suite(&args.suite)?;
     trace!("Setting up");
-    let instances = setup(&suite, &args.working_dir, args.threads)?;
+    let instances = setup(&suite, &working_dir, args.threads)?;
     trace!("Generating runner");
     let runner = runner::generate(&args);
     trace!("Running learners");
@@ -63,11 +74,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             .map(|a| format!(",{}", a))
             .collect::<String>()
     );
-    let out_path = match args.out.is_relative() {
-        true => args.out.canonicalize()?,
-        false => args.out.to_path_buf(),
-    };
-    let mut file = File::create(out_path)?;
+    let mut file = File::create(out_file)?;
     write!(file, "{}\n", header)?;
     for result in results.iter() {
         let solver = &instances.solvers[result.id];
