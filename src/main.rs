@@ -63,7 +63,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             .map(|a| format!(",{}", a))
             .collect::<String>()
     );
-    let mut file = File::create(args.out)?;
+    let mut file = File::create(args.out.canonicalize()?)?;
     write!(file, "{}\n", header)?;
     for result in results.iter() {
         let solver = &instances.solvers[result.id];
