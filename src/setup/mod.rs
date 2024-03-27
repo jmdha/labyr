@@ -24,5 +24,9 @@ pub fn setup<'a>(
         .build_global()
         .unwrap();
     trace!("Generating instances");
-    generate_instances(&working_dir.canonicalize()?, &suite)
+    let working_dir = match working_dir.is_relative() {
+        true => working_dir.canonicalize()?,
+        false => working_dir.to_path_buf(),
+    };
+    generate_instances(&working_dir, &suite)
 }
