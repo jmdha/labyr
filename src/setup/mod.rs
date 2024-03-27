@@ -24,5 +24,5 @@ pub fn setup<'a>(
         .build_global()
         .unwrap();
     trace!("Generating instances");
-    generate_instances(working_dir, &suite)
+    generate_instances(&working_dir.canonicalize()?, &suite)
 }
