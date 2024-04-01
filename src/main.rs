@@ -9,23 +9,36 @@ use log::trace;
 use path_absolutize::*;
 use runner::RunnerKind;
 use setup::suite::generate_suite;
-use std::{error::Error, fs::File, io::Write, path::PathBuf};
+use std::{
+    error::Error,
+    fs::{self, File},
+    io::Write,
+    path::PathBuf,
+};
 
 #[derive(Parser, Debug)]
 #[command(version)]
 struct Args {
+    /// Specifies the directory where instance directories are generated
     #[arg(short, long, required = false, default_value = "/tmp/labyr")]
-    working_dir: PathBuf,
+    instance_dir: PathBuf,
 
+    /// Specifies which directory results will be written to
     #[arg(short, long, required = false, default_value = "results.csv")]
     out: PathBuf,
 
+    /// Whether to keep the instance dir, deleted by default
+    #[arg(short, long, required = false)]
+    keep_instance_dir: bool,
+
+    /// The maximum number of threads to use for local runner, 0 for max
     #[arg(short, long, required = false, default_value_t = 1)]
     threads: usize,
 
     #[arg(short, long, required = false, default_value = "local")]
     runner: RunnerKind,
 
+    /// The suite to run
     #[arg(required = true)]
     suite: PathBuf,
 }
@@ -34,8 +47,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     logging::init();
     trace!("Parsing args");
     let args = Args::parse();
+    let result = _main(&args);
+    if !args.keep_instance_dir {
+        trace!("Deleting instance dir");
+        let _ = fs::remove_dir_all(args.instance_dir);
+    }
+    result
+}
+
+fn _main(args: &Args) -> Result<(), Box<dyn Error>> {
     trace!("Cleaning working dir");
-    let working_dir = args.working_dir.to_owned().absolutize()?.to_path_buf();
+    let working_dir = args.instance_dir.to_owned().absolutize()?.to_path_buf();
     let out_file = args.out.to_owned().absolutize()?.to_path_buf();
     trace!("Load data");
     let suite = generate_suite(&args.suite)?;
