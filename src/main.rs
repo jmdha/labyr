@@ -9,12 +9,7 @@ use log::trace;
 use path_absolutize::*;
 use runner::RunnerKind;
 use setup::suite::generate_suite;
-use std::{
-    error::Error,
-    fs::{self, File},
-    io::Write,
-    path::PathBuf,
-};
+use std::{error::Error, fs::File, io::Write, path::PathBuf};
 
 #[derive(Parser, Debug)]
 #[command(version)]

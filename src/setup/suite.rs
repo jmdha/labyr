@@ -11,8 +11,11 @@ pub struct Suite {
     pub memory_limit_learn: Option<usize>,
     pub time_limit_solve: Option<usize>,
     pub memory_limit_solve: Option<usize>,
+    #[serde(default)]
     pub attributes: Vec<Attributes>,
+    #[serde(default)]
     pub learners: Vec<Learner>,
+    #[serde(default)]
     pub solvers: Vec<Solver>,
     pub tasks: Vec<Task>,
 }
@@ -34,6 +37,7 @@ pub struct Learner {
     pub attributes: String,
     #[serde(with = "abs_path")]
     pub path: PathBuf,
+    #[serde(default)]
     pub args: Vec<String>,
 }
 
@@ -43,6 +47,7 @@ pub struct Solver {
     pub attributes: String,
     #[serde(with = "abs_path")]
     pub path: PathBuf,
+    #[serde(default)]
     pub args: Vec<String>,
     pub learner: Option<String>,
 }
@@ -50,6 +55,7 @@ pub struct Solver {
 #[derive(Deserialize)]
 pub struct Attributes {
     pub name: String,
+    #[serde(default)]
     pub patterns: Vec<Pattern>,
 }
 
