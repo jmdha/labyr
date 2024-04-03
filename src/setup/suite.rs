@@ -80,17 +80,37 @@ impl Suite {
     }
 }
 
-pub fn generate_suite(path: &PathBuf) -> Result<Suite, Box<dyn std::error::Error>> {
-    trace!("Reading suite file at {:?}", &path);
-    let suite_content = fs::read_to_string(path)?;
+fn parse_by_file_loc(
+    file_loc: &PathBuf,
+    content: &str,
+) -> Result<Suite, Box<dyn std::error::Error>> {
     let working_dir = env::current_dir().unwrap();
-    let temp_dir = path.parent().unwrap();
+    let temp_dir = file_loc.parent().unwrap();
     trace!("Setting working dir to {:?}", temp_dir);
     let _ = env::set_current_dir(temp_dir);
     trace!("Parsing suite");
-    let suite: Suite = toml::from_str(&suite_content)?;
+    let suite: Suite = toml::from_str(&content)?;
     trace!("Resetting dir to {:?}", working_dir);
     let _ = env::set_current_dir(working_dir);
+    Ok(suite)
+}
+
+fn parse_by_work_dir(content: &str) -> Result<Suite, Box<dyn std::error::Error>> {
+    trace!("Parsing suite");
+    let suite: Suite = toml::from_str(&content)?;
+    Ok(suite)
+}
+
+pub fn generate_suite(
+    path: &PathBuf,
+    by_work_dir: bool,
+) -> Result<Suite, Box<dyn std::error::Error>> {
+    trace!("Reading suite file at {:?}", &path);
+    let suite_content = fs::read_to_string(path)?;
+    let suite = match by_work_dir {
+        true => parse_by_work_dir(&suite_content)?,
+        false => parse_by_file_loc(path, &suite_content)?,
+    };
     info!(
         "Solvers: {:?}",
         suite.solvers.iter().map(|s| &s.name).collect::<Vec<_>>()

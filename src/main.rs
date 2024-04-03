@@ -23,18 +23,19 @@ struct Args {
     #[arg(short, long, required = false, default_value = "/tmp/labyr")]
     instance_dir: PathBuf,
 
+    /// Whether to parse by work dir or file location
+    #[arg(short, long, required = false)]
+    parse_by_work_dir: bool,
+
     /// Specifies which directory results will be written to
     #[arg(short, long, required = false, default_value = "results.csv")]
     out: PathBuf,
-
-    /// Whether to keep the instance dir, deleted by default
-    #[arg(short, long, required = false)]
-    keep_instance_dir: bool,
 
     /// The maximum number of threads to use for local runner, 0 for max
     #[arg(short, long, required = false, default_value_t = 1)]
     threads: usize,
 
+    /// Specifies how experiments are to run, default is local
     #[arg(short, long, required = false, default_value = "local")]
     runner: RunnerKind,
 
@@ -48,10 +49,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     trace!("Parsing args");
     let args = Args::parse();
     let result = _main(&args);
-    if !args.keep_instance_dir {
-        trace!("Deleting instance dir");
-        let _ = fs::remove_dir_all(args.instance_dir);
-    }
     result
 }
 
@@ -60,7 +57,7 @@ fn _main(args: &Args) -> Result<(), Box<dyn Error>> {
     let working_dir = args.instance_dir.to_owned().absolutize()?.to_path_buf();
     let out_file = args.out.to_owned().absolutize()?.to_path_buf();
     trace!("Load data");
-    let suite = generate_suite(&args.suite)?;
+    let suite = generate_suite(&args.suite, args.parse_by_work_dir)?;
     trace!("Setting up");
     let instances = setup(&suite, &working_dir, args.threads)?;
     trace!("Generating runner");
