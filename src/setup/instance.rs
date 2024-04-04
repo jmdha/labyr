@@ -4,50 +4,48 @@ use itertools::Itertools;
 use log::trace;
 use std::{env, fs, path::PathBuf, process::Command};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Instance {
     pub runners: Vec<Runner>,
     pub tasks: Vec<Task>,
-    pub learners: Vec<Learner>,
-    pub solvers: Vec<Solver>,
+    pub runs: Vec<Run>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Runner {
     pub name: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Task {
     pub name: String,
     pub learn: Vec<String>,
     pub solve: Vec<String>,
 }
 
-#[derive(Debug)]
-pub struct Learner {
-    pub dir: PathBuf,
-    pub exe: PathBuf,
-    pub runner_index: usize,
-    pub task_index: usize,
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum RunKind {
+    Learner,
+    Solver {
+        problem_index: usize,
+        depends: Option<usize>,
+    },
 }
 
-#[derive(Debug)]
-pub struct Solver {
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Run {
     pub dir: PathBuf,
     pub exe: PathBuf,
     pub runner_index: usize,
     pub task_index: usize,
-    pub problem_index: usize,
-    pub depends: Option<usize>,
+    pub kind: RunKind,
 }
 
 pub fn generate(suite: Suite) -> Result<Instance> {
     let working_dir = env::current_dir().map_err(|e| format!("No working dir: {}", e))?;
     let learn_dir = working_dir.join("learn");
     let solve_dir = working_dir.join("solve");
-    let mut learners: Vec<Learner> = vec![];
-    let mut solvers: Vec<Solver> = vec![];
+    let mut runs: Vec<Run> = vec![];
     trace!("Instantiating tasks");
     for (i, ((task_index, task), (learner_index, learner))) in suite
         .tasks
@@ -79,11 +77,12 @@ pub fn generate(suite: Suite) -> Result<Instance> {
             suite.time_limit_learn,
             suite.memory_limit_learn,
         )?;
-        learners.push(Learner {
+        runs.push(Run {
             dir,
             exe,
             runner_index: learner_index,
             task_index,
+            kind: RunKind::Learner,
         });
     }
     let mut i: usize = 0;
@@ -92,20 +91,20 @@ pub fn generate(suite: Suite) -> Result<Instance> {
             for (solver_index, solver) in suite.solvers().iter().enumerate() {
                 let dir = solve_dir.join(format!("{}", i));
                 let mut args = solver.args.clone();
-                if let Some(depends) = &solver.depends {
-                    args.push(
-                        learners
-                            .iter()
-                            .find(|l| {
+                let depends = match &solver.depends {
+                    Some(depends) => Some(
+                        runs.iter()
+                            .position(|l| {
                                 task_index == l.task_index
                                     && depends == &suite.learners()[l.runner_index].name
+                                    && l.kind == RunKind::Learner
                             })
-                            .unwrap()
-                            .dir
-                            .to_str()
-                            .ok_or("Failed to get dir name")?
-                            .to_string(),
-                    );
+                            .unwrap(),
+                    ),
+                    None => None,
+                };
+                if let Some(depends) = depends {
+                    args.push(runs[depends].dir.to_string_lossy().to_string());
                 }
                 args.push(
                     task.domain
@@ -126,13 +125,15 @@ pub fn generate(suite: Suite) -> Result<Instance> {
                     suite.time_limit_solve,
                     suite.memory_limit_solve,
                 )?;
-                solvers.push(Solver {
+                runs.push(Run {
                     dir,
                     exe,
                     runner_index: solver_index + suite.learner_count(),
                     task_index,
-                    problem_index,
-                    depends: None,
+                    kind: RunKind::Solver {
+                        problem_index,
+                        depends,
+                    },
                 });
 
                 i += 1;
@@ -175,8 +176,7 @@ pub fn generate(suite: Suite) -> Result<Instance> {
     Ok(Instance {
         runners,
         tasks,
-        learners,
-        solvers,
+        runs,
     })
 }
 

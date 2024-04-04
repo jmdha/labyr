@@ -11,14 +11,14 @@ pub fn eval(out_dir: &PathBuf, instance: &Instance) -> Result<()> {
 
 fn collect_csvs(out_dir: &PathBuf, instance: &Instance) -> Result<()> {
     let csvs: HashSet<PathBuf> = instance
-        .learners
+        .runs
         .iter()
         .flat_map(|l| find_files(&l.dir, ".csv"))
         .collect();
 
     for csv in csvs.iter() {
         let mut content: Vec<String> = Default::default();
-        for run in instance.learners.iter() {
+        for run in instance.runs.iter() {
             let csv_loc = run.dir.join(csv);
             if !csv_loc.exists() {
                 continue;

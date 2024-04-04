@@ -1,40 +1,116 @@
 use crate::misc::logging::ProgressBar;
-use crate::setup::instance::Instance;
+use crate::setup::instance::{Instance, Run, RunKind};
 use crate::Result;
 use log::{info, trace};
 use pretty_duration::pretty_duration;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::path::PathBuf;
 use std::process::Command;
-use std::time::Instant;
+use std::sync::{mpsc, Arc, Mutex};
+use std::thread::{self, sleep};
+use std::time::{Duration, Instant};
 
-pub fn execute(instance: &Instance) -> Result<()> {
-    trace!("Running learners");
-    _execute(&instance.learners.iter().map(|l| (&l.dir, &l.exe)).collect())?;
-    trace!("Running solvers");
-    _execute(&instance.solvers.iter().map(|l| (&l.dir, &l.exe)).collect())?;
+#[derive(Clone, PartialEq, Eq)]
+enum State {
+    Unprocessed,
+    Processing,
+    Processed,
+}
+
+pub fn execute(instance: Instance, threads: usize) -> Result<()> {
+    let runs = Arc::new(Mutex::new(
+        instance
+            .runs
+            .iter()
+            .cloned()
+            .zip(vec![State::Unprocessed; instance.runs.len()].into_iter())
+            .collect::<Vec<(Run, State)>>(),
+    ));
+    let pb = ProgressBar::new(runs.lock().unwrap().len());
+    let (tx, rx) = mpsc::channel();
+    for n in 0..threads {
+        let tx = tx.clone();
+        let runs = runs.clone();
+        thread::spawn(move || loop {
+            let run = {
+                let mut runs = runs.lock().unwrap();
+                let run = runs
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, (run, state))| match state {
+                        State::Unprocessed => Some((i, run)),
+                        _ => None,
+                    })
+                    .find(|(_, run)| match run.kind {
+                        RunKind::Learner => true,
+                        RunKind::Solver {
+                            problem_index: _,
+                            depends,
+                        } => {
+                            if let Some(depends) = depends {
+                                runs[depends].1 == State::Processed
+                            } else {
+                                true
+                            }
+                        }
+                    })
+                    .map(|(i, run)| (i.to_owned(), run.to_owned()));
+                if let Some((i, _)) = run {
+                    runs[i].1 = State::Processing;
+                }
+                run
+            };
+            if let Some((i, run)) = run {
+                let _ = tx.send((n, Some(i)));
+                let _ = _execute(&run.dir, &run.exe);
+                runs.lock().unwrap()[i].1 = State::Processed;
+            } else {
+                let _ = tx.send((n, None));
+                if runs
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .all(|(_, state)| state != &State::Unprocessed)
+                {
+                    break;
+                } else {
+                    sleep(Duration::from_millis(50));
+                }
+            }
+        });
+    }
+    drop(tx);
+    while let Ok((_, i)) = rx.recv() {
+        if let Some(_) = i {
+            pb.inc();
+        }
+        let msg: String = runs
+            .lock()
+            .unwrap()
+            .iter()
+            .enumerate()
+            .filter_map(|(i, (_, state))| match state {
+                State::Processing => Some(i.to_string()),
+                _ => None,
+            })
+            .collect::<Vec<String>>()
+            .join(", ");
+        pb.msg(msg);
+    }
     Ok(())
 }
 
-fn _execute(scripts: &Vec<(&PathBuf, &PathBuf)>) -> Result<()> {
-    let width = ((scripts.len() as f64).log10()).ceil() as usize;
-    let pg = ProgressBar::new(scripts.len());
-    scripts.into_par_iter().for_each(|(dir, exe)| {
-        let dir_name = dir.file_stem().expect("Could not retrieve name of dir");
-        let mut command = Command::new(exe);
-        command.current_dir(dir);
-        trace!("Running command: {:?}", command);
-        let t = Instant::now();
-        let output = command.output().expect("Failed to run command");
-        let elapsed = t.elapsed();
-        info!(
-            "{:0>width$} {} - {}",
-            dir_name.to_str().expect("Could not convert name to string"),
-            output.status,
-            pretty_duration(&elapsed, None),
-            width = width,
-        );
-        pg.inc();
-    });
+fn _execute(dir: &PathBuf, exe: &PathBuf) -> Result<()> {
+    let dir_name = dir.file_stem().expect("Could not retrieve name of dir");
+    let mut command = Command::new(exe);
+    command.current_dir(dir);
+    trace!("Running command: {:?}", command);
+    let t = Instant::now();
+    let _ = command.output().expect("Failed to run command");
+    let elapsed = t.elapsed();
+    info!(
+        "{} - {}",
+        dir_name.to_str().expect("Could not convert name to string"),
+        pretty_duration(&elapsed, None),
+    );
     Ok(())
 }

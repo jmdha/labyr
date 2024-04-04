@@ -11,9 +11,9 @@ pub enum ExecutionKind {
     Slurm,
 }
 
-pub fn execute(instance: &Instance, kind: ExecutionKind) -> Result<()> {
+pub fn execute(instance: Instance, kind: ExecutionKind, threads: usize) -> Result<()> {
     match kind {
-        ExecutionKind::Local => local::execute(instance),
+        ExecutionKind::Local => local::execute(instance, threads),
         ExecutionKind::Slurm => todo!(),
     }
 }

@@ -15,8 +15,8 @@ fn progresser() -> &'static MultiProgress {
 }
 
 pub fn init() {
-    let _ =
-        LOGGER.set(env_logger::Builder::from_env(Env::default().default_filter_or("trace")).build());
+    let _ = LOGGER
+        .set(env_logger::Builder::from_env(Env::default().default_filter_or("trace")).build());
     let _ = PROGRESSER.set(MultiProgress::new());
     LogWrapper::new(progresser().clone(), logger())
         .try_init()
@@ -31,15 +31,20 @@ impl ProgressBar {
     pub fn new(len: usize) -> Self {
         let pg = indicatif::ProgressBar::new(len as u64);
         pg.set_style(
-            ProgressStyle::with_template("[{bar:32}] {pos}/{len}")
-                .unwrap()
-                .progress_chars("=> "),
+            ProgressStyle::with_template(
+                "[{bar:24}] {pos}/{len} {wide_msg}",
+            )
+            .unwrap()
+            .progress_chars("=> "),
         );
         let pg = progresser().add(pg);
         Self { pg }
     }
     pub fn inc(&self) {
         self.pg.inc(1);
+    }
+    pub fn msg(&self, msg: String) {
+        self.pg.set_message(msg)
     }
 }
 

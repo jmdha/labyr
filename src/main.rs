@@ -54,18 +54,14 @@ fn main() -> Result<()> {
             )
         })?
         .to_path_buf();
-    trace!("Building thread pool");
+    trace!("Determining number of threads");
     let threads = match args.threads {
         0 => available_parallelism()
             .map_err(|e| format!("Failed to get available threads: {}", e))?
             .get(),
         _ => args.threads,
     };
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build_global()
-        .map_err(|e| format!("Failed to build thread pool: {}", e))?;
-    info!("Thread pool size: {}", threads);
+    info!("Thread count: {}", threads);
     let suite_path = args
         .suite
         .absolutize()
@@ -79,7 +75,7 @@ fn main() -> Result<()> {
     trace!("Generating instance");
     let instance = setup::run(&temp_dir, &suite_path)?;
     trace!("Executing instance");
-    execution::execute(&instance, args.execution_kind)?;
+    execution::execute(instance.to_owned(), args.execution_kind, threads)?;
     evaluation::eval(&out_dir, &instance)?;
     if args.keep_working_dir {
         trace!("Releasing temp dir");
