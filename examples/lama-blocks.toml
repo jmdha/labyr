@@ -1,17 +1,21 @@
-time_limit = 600
-memory_limit = 3000
+time_limit_learn = 600    # seconds
+memory_limit_learn = 3000 # mb
+time_limit_solve = 600    # seconds
+memory_limit_solve = 3000 # mb
 
-[[solvers]]
+[[runners]]
 name = "lama"
 attributes = "downward"
 path = "solvers/fast_downward.sh"
 args = ["lama"]
+kind = "Solve"
 
-[[solvers]]
+[[runners]]
 name = "lama-first"
 attributes = "downward"
 path = "solvers/fast_downward.sh"
 args = ["lama-first"]
+kind = "Solve"
 
 [[attributes]]
 name = "downward"
@@ -23,5 +27,4 @@ patterns = [
 [[tasks]]
 name = "blocksworld"
 domain = "blocksworld/domain.pddl"
-problems_training = "blocksworld/problem.pddl"
-problems_testing = "blocksworld/problem.pddl"
+solve = "blocksworld/problem.pddl"

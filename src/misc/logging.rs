@@ -16,7 +16,7 @@ fn progresser() -> &'static MultiProgress {
 
 pub fn init() {
     let _ =
-        LOGGER.set(env_logger::Builder::from_env(Env::default().default_filter_or("info")).build());
+        LOGGER.set(env_logger::Builder::from_env(Env::default().default_filter_or("trace")).build());
     let _ = PROGRESSER.set(MultiProgress::new());
     LogWrapper::new(progresser().clone(), logger())
         .try_init()

@@ -1,28 +1,22 @@
-pub mod generation;
-pub mod suite;
+pub mod instance;
+mod suite;
 
-use self::generation::generate_instances;
-use self::generation::Instances;
-use self::suite::Suite;
+use crate::{setup::instance::Instance, Result};
 use log::trace;
-use std::env;
-use std::error::Error;
-use std::path::PathBuf;
+use std::{env, fs, path::PathBuf};
 
-pub fn setup<'a>(
-    suite: &'a Suite,
-    working_dir: &'a PathBuf,
-    threads: usize,
-) -> Result<Instances<'a>, Box<dyn Error>> {
-    if let Some(mem) = suite.memory_limit_learn {
-        trace!("Limiting c# mem use");
-        env::set_var("DOTNET_GCHeapHardLimit", format!("{}", mem * 1000));
-    }
-    trace!("Building thread pool");
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build_global()
-        .unwrap();
-    trace!("Generating instances");
-    generate_instances(&working_dir, &suite)
+pub fn run(temp_dir: &PathBuf, suite_path: &PathBuf) -> Result<Instance> {
+    trace!("Reading suite file");
+    let suite_content =
+        fs::read_to_string(suite_path).map_err(|e| format!("Failed to read suite file: {}", e))?;
+    trace!("Changing working directory to {:?} parent", suite_path);
+    env::set_current_dir(suite_path.parent().ok_or("Suite files has no parent")?)
+        .map_err(|e| format!("Failed to change working directory: {}", e))?;
+    trace!("Parsing suite file");
+    let suite = suite::parse(&suite_content)?;
+    trace!("Changing working directory to {:?}", temp_dir);
+    env::set_current_dir(temp_dir)
+        .map_err(|e| format!("Failed to change working directory: {}", e))?;
+    trace!("Generating instance");
+    instance::generate(suite)
 }

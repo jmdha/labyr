@@ -1,154 +1,127 @@
-use crate::misc::{abs_path, path_set, regex_pattern};
-use log::{info, trace, warn};
-use regex::Regex;
-use serde::Deserialize;
-use std::env;
-use std::{fs, path::PathBuf};
+use crate::misc::abs_path;
+use crate::misc::path_set;
+use crate::Result;
+use log::info;
+use std::path::PathBuf;
 
-#[derive(Deserialize)]
+#[derive(serde::Deserialize)]
 pub struct Suite {
     pub time_limit_learn: Option<usize>,
-    pub memory_limit_learn: Option<usize>,
     pub time_limit_solve: Option<usize>,
+    pub memory_limit_learn: Option<usize>,
     pub memory_limit_solve: Option<usize>,
-    #[serde(default)]
-    pub attributes: Vec<Attributes>,
-    #[serde(default)]
-    pub learners: Vec<Learner>,
-    #[serde(default)]
-    pub solvers: Vec<Solver>,
+    pub runners: Vec<Runner>,
     pub tasks: Vec<Task>,
 }
 
-#[derive(Deserialize)]
+#[derive(serde::Deserialize)]
+pub struct Runner {
+    pub name: String,
+    #[serde(with = "abs_path")]
+    pub path: PathBuf,
+    pub kind: RunnerKind,
+    #[serde(default)]
+    pub args: Vec<String>,
+    pub depends: Option<String>,
+}
+#[derive(serde::Deserialize)]
+pub enum RunnerKind {
+    Learn,
+    Solve,
+}
+
+#[derive(serde::Deserialize)]
 pub struct Task {
     pub name: String,
     #[serde(with = "abs_path")]
     pub domain: PathBuf,
-    #[serde(with = "path_set")]
-    pub problems_training: Vec<PathBuf>,
-    #[serde(with = "path_set")]
-    pub problems_testing: Vec<PathBuf>,
-}
-
-#[derive(Deserialize)]
-pub struct Learner {
-    pub name: String,
-    pub attributes: String,
-    #[serde(with = "abs_path")]
-    pub path: PathBuf,
-    #[serde(default)]
-    pub args: Vec<String>,
-}
-
-#[derive(Deserialize)]
-pub struct Solver {
-    pub name: String,
-    pub attributes: String,
-    #[serde(with = "abs_path")]
-    pub path: PathBuf,
-    #[serde(default)]
-    pub args: Vec<String>,
-    pub learner: Option<String>,
-}
-
-#[derive(Deserialize)]
-pub struct Attributes {
-    pub name: String,
-    #[serde(default)]
-    pub patterns: Vec<Pattern>,
-}
-
-#[derive(Deserialize)]
-pub struct Pattern {
-    pub name: String,
-    #[serde(with = "regex_pattern")]
-    pub pattern: Regex,
+    #[serde(default, with = "path_set")]
+    pub learn: Vec<PathBuf>,
+    #[serde(default, with = "path_set")]
+    pub solve: Vec<PathBuf>,
 }
 
 impl Suite {
-    pub fn total_training_problems(&self) -> usize {
-        self.tasks
+    pub fn get_runner(&self, name: &str) -> Option<&Runner> {
+        self.runners.iter().find(|r| r.name == name)
+    }
+    #[allow(unused)]
+    pub fn get_task(&self, name: &str) -> Option<&Task> {
+        self.tasks.iter().find(|r| r.name == name)
+    }
+    pub fn runner_names(&self) -> Vec<&str> {
+        self.runners.iter().map(|r| r.name.as_str()).collect()
+    }
+    pub fn task_names(&self) -> Vec<&str> {
+        self.tasks.iter().map(|r| r.name.as_str()).collect()
+    }
+    pub fn learner_count(&self) -> usize {
+        self.learners().len()
+    }
+    pub fn solver_count(&self) -> usize {
+        self.solvers().len()
+    }
+    pub fn total_problems_learn(&self) -> usize {
+        self.tasks.iter().map(|t| t.learn.len()).sum()
+    }
+    pub fn total_problems_solve(&self) -> usize {
+        self.tasks.iter().map(|t| t.solve.len()).sum()
+    }
+    pub fn learners(&self) -> Vec<&Runner> {
+        self.runners
             .iter()
-            .map(|s| s.problems_training.len())
-            .sum::<usize>()
+            .filter(|r| match r.kind {
+                RunnerKind::Learn => true,
+                RunnerKind::Solve => false,
+            })
+            .collect()
     }
-
-    pub fn total_testing_problems(&self) -> usize {
-        self.tasks
+    pub fn solvers(&self) -> Vec<&Runner> {
+        self.runners
             .iter()
-            .map(|s| s.problems_testing.len())
-            .sum::<usize>()
+            .filter(|r| match r.kind {
+                RunnerKind::Learn => false,
+                RunnerKind::Solve => true,
+            })
+            .collect()
+    }
+}
+
+pub fn parse(content: &str) -> Result<Suite> {
+    let suite: Suite =
+        toml::from_str(content).map_err(|e| format!("Failed to parse suite file: {}", e))?;
+
+    // Checking whether any runner dependency is undefined
+    for runner in suite.runners.iter() {
+        if let Some(depends) = &runner.depends {
+            if suite.get_runner(&depends).is_none() {
+                return Err(format!(
+                    "Runner {} depends on undefined runner {}",
+                    runner.name, depends
+                ));
+            }
+        }
     }
 
-    pub fn get_attributes(&self, name: &str) -> Option<&Attributes> {
-        self.attributes.iter().find(|att| att.name == name)
+    // Checking whether tasks have problems according to the defined runners
+    for task in suite.tasks.iter() {
+        if task.learn.is_empty() && suite.learner_count() > 0 {
+            return Err(format!("Task {} has no learn problems", task.name));
+        }
+        if task.solve.is_empty() && suite.solver_count() > 0 {
+            return Err(format!("Task {} has no solve problems", task.name));
+        }
+        if task.learn.is_empty() && task.solve.is_empty() {
+            return Err(format!("Task {} has no problems", task.name));
+        }
     }
-}
 
-fn parse_by_file_loc(
-    file_loc: &PathBuf,
-    content: &str,
-) -> Result<Suite, Box<dyn std::error::Error>> {
-    let working_dir = env::current_dir().unwrap();
-    let temp_dir = file_loc.parent().unwrap();
-    trace!("Setting working dir to {:?}", temp_dir);
-    let _ = env::set_current_dir(temp_dir);
-    trace!("Parsing suite");
-    let suite: Suite = toml::from_str(&content)?;
-    trace!("Resetting dir to {:?}", working_dir);
-    let _ = env::set_current_dir(working_dir);
-    Ok(suite)
-}
+    info!("Runner count: {}", suite.runners.len());
+    info!("Runners: {:?}", suite.runner_names());
+    info!("Task count: {}", suite.tasks.len());
+    info!("Tasks: {:?}", suite.task_names());
+    info!("Problem learn count: {:?}", suite.total_problems_learn());
+    info!("Problem solve count: {:?}", suite.total_problems_solve());
 
-fn parse_by_work_dir(content: &str) -> Result<Suite, Box<dyn std::error::Error>> {
-    trace!("Parsing suite");
-    let suite: Suite = toml::from_str(&content)?;
-    Ok(suite)
-}
-
-pub fn generate_suite(
-    path: &PathBuf,
-    by_work_dir: bool,
-) -> Result<Suite, Box<dyn std::error::Error>> {
-    trace!("Reading suite file at {:?}", &path);
-    let suite_content = fs::read_to_string(path)?;
-    let suite = match by_work_dir {
-        true => parse_by_work_dir(&suite_content)?,
-        false => parse_by_file_loc(path, &suite_content)?,
-    };
-    info!(
-        "Solvers: {:?}",
-        suite.solvers.iter().map(|s| &s.name).collect::<Vec<_>>()
-    );
-    info!(
-        "Domains: {:?}",
-        suite.tasks.iter().map(|s| &s.name).collect::<Vec<_>>()
-    );
-    info!(
-        "Total training problems: {}",
-        suite.total_training_problems()
-    );
-    info!("Total testing problems: {}", suite.total_testing_problems());
-    suite
-        .learners
-        .iter()
-        .filter(|t| suite.get_attributes(&t.attributes).is_none())
-        .for_each(|s| {
-            warn!(
-                "Learner {} attributes {} doesn't exist",
-                s.name, s.attributes
-            )
-        });
-    suite
-        .solvers
-        .iter()
-        .filter(|t| suite.get_attributes(&t.attributes).is_none())
-        .for_each(|s| {
-            warn!(
-                "Solver {} attributes {} doesn't exist",
-                s.name, s.attributes
-            )
-        });
     Ok(suite)
 }
