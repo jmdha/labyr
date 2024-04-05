@@ -1,7 +1,5 @@
-use itertools::Itertools;
-use log::trace;
-
 use crate::{setup::instance::Instance, Result};
+use log::trace;
 use std::{collections::HashSet, fs, path::PathBuf};
 
 pub fn eval(out_dir: &PathBuf, instance: &Instance) -> Result<()> {
@@ -46,8 +44,11 @@ fn collect_csvs(out_dir: &PathBuf, instance: &Instance) -> Result<()> {
                 )
             })?;
         }
-        fs::write(&csv_out, content.into_iter().join("\n"))
-            .map_err(|e| format!("Failed to write csv {:?} with error: {}", csv_out, e))?;
+        fs::write(
+            &csv_out,
+            content.into_iter().collect::<Vec<String>>().join("\n"),
+        )
+        .map_err(|e| format!("Failed to write csv {:?} with error: {}", csv_out, e))?;
     }
     Ok(())
 }

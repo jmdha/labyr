@@ -1,6 +1,5 @@
 use super::suite::Suite;
 use crate::Result;
-use itertools::Itertools;
 use log::trace;
 use std::{env, fs, path::PathBuf, process::Command};
 
@@ -47,43 +46,41 @@ pub fn generate(suite: Suite) -> Result<Instance> {
     let solve_dir = working_dir.join("solve");
     let mut runs: Vec<Run> = vec![];
     trace!("Instantiating tasks");
-    for (i, ((task_index, task), (learner_index, learner))) in suite
-        .tasks
-        .iter()
-        .enumerate()
-        .cartesian_product(suite.learners().iter().enumerate())
-        .enumerate()
-    {
-        let dir = learn_dir.join(format!("{}", i));
-        let mut args = learner.args.clone();
-        args.push(
-            task.domain
-                .to_str()
-                .ok_or(format!("Failed to convert {:?} into a string", task.domain))?
-                .to_owned(),
-        );
-        for problem in task.learn.iter() {
+    let mut i: usize = 0;
+    for (task_index, task) in suite.tasks.iter().enumerate() {
+        for (learner_index, learner) in suite.learners().iter().enumerate() {
+            let dir = learn_dir.join(format!("{}", i));
+            let mut args = learner.args.clone();
             args.push(
-                problem
+                task.domain
                     .to_str()
-                    .ok_or(format!("Failed to convert {:?} into a string", problem))?
+                    .ok_or(format!("Failed to convert {:?} into a string", task.domain))?
                     .to_owned(),
             );
+            for problem in task.learn.iter() {
+                args.push(
+                    problem
+                        .to_str()
+                        .ok_or(format!("Failed to convert {:?} into a string", problem))?
+                        .to_owned(),
+                );
+            }
+            let exe = generate_script(
+                &dir,
+                &learner.path,
+                &args,
+                suite.time_limit_learn,
+                suite.memory_limit_learn,
+            )?;
+            runs.push(Run {
+                dir,
+                exe,
+                runner_index: learner_index,
+                task_index,
+                kind: RunKind::Learner,
+            });
+            i += 1;
         }
-        let exe = generate_script(
-            &dir,
-            &learner.path,
-            &args,
-            suite.time_limit_learn,
-            suite.memory_limit_learn,
-        )?;
-        runs.push(Run {
-            dir,
-            exe,
-            runner_index: learner_index,
-            task_index,
-            kind: RunKind::Learner,
-        });
     }
     let mut i: usize = 0;
     for (task_index, task) in suite.tasks.iter().enumerate() {
