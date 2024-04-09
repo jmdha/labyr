@@ -278,6 +278,7 @@ dependencies = [
  "once_cell",
  "path-absolutize",
  "pretty-duration",
+ "regex",
  "serde",
  "toml",
  "walkdir",

@@ -1,4 +1,4 @@
-use super::suite::Suite;
+use super::suite::{Attribute, RunnerKind, Suite};
 use crate::Result;
 use log::trace;
 use std::{env, fs, path::PathBuf, process::Command};
@@ -7,12 +7,15 @@ use std::{env, fs, path::PathBuf, process::Command};
 pub struct Instance {
     pub runners: Vec<Runner>,
     pub tasks: Vec<Task>,
+    pub attributes: Vec<Attribute>,
     pub runs: Vec<Run>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Runner {
     pub name: String,
+    pub attribute: Option<usize>,
+    pub kind: RunnerKind,
 }
 
 #[derive(Debug, Clone)]
@@ -137,10 +140,18 @@ pub fn generate(suite: Suite) -> Result<Instance> {
             }
         }
     }
+    let attributes = suite.attributes;
     let runners = suite
         .runners
         .into_iter()
-        .map(|r| Runner { name: r.name })
+        .map(|r| Runner {
+            name: r.name,
+            attribute: match r.attribute {
+                Some(a) => Some(attributes.iter().position(|p| p.name == a).unwrap()),
+                None => None,
+            },
+            kind: r.kind,
+        })
         .collect();
     let mut tasks = vec![];
     for task in suite.tasks.into_iter() {
@@ -173,6 +184,7 @@ pub fn generate(suite: Suite) -> Result<Instance> {
     Ok(Instance {
         runners,
         tasks,
+        attributes,
         runs,
     })
 }

@@ -1,7 +1,9 @@
 use crate::misc::abs_path;
 use crate::misc::path_set;
+use crate::misc::regex_pattern;
 use crate::Result;
 use log::info;
+use regex::Regex;
 use std::path::PathBuf;
 
 #[derive(serde::Deserialize)]
@@ -11,6 +13,8 @@ pub struct Suite {
     pub memory_limit_learn: Option<usize>,
     pub memory_limit_solve: Option<usize>,
     pub runners: Vec<Runner>,
+    #[serde(default)]
+    pub attributes: Vec<Attribute>,
     pub tasks: Vec<Task>,
 }
 
@@ -23,11 +27,26 @@ pub struct Runner {
     #[serde(default)]
     pub args: Vec<String>,
     pub depends: Option<String>,
+    pub attribute: Option<String>,
 }
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum RunnerKind {
     Learn,
     Solve,
+}
+
+#[derive(serde::Deserialize, Debug, Clone)]
+pub struct Attribute {
+    pub name: String,
+    #[serde(default)]
+    pub patterns: Vec<Pattern>,
+}
+
+#[derive(serde::Deserialize, Debug, Clone)]
+pub struct Pattern {
+    pub name: String,
+    #[serde(with = "regex_pattern")]
+    pub pattern: Regex,
 }
 
 #[derive(serde::Deserialize)]
@@ -48,6 +67,9 @@ impl Suite {
     #[allow(unused)]
     pub fn get_task(&self, name: &str) -> Option<&Task> {
         self.tasks.iter().find(|r| r.name == name)
+    }
+    pub fn get_attribute(&self, name: &str) -> Option<&Attribute> {
+        self.attributes.iter().find(|r| r.name == name)
     }
     pub fn runner_names(&self) -> Vec<&str> {
         self.runners.iter().map(|r| r.name.as_str()).collect()
@@ -98,6 +120,18 @@ pub fn parse(content: &str) -> Result<Suite> {
                 return Err(format!(
                     "Runner {} depends on undefined runner {}",
                     runner.name, depends
+                ));
+            }
+        }
+    }
+
+    // Checking whether any attributes are undefined
+    for runner in suite.runners.iter() {
+        if let Some(attribute) = &runner.attribute {
+            if suite.get_attribute(&attribute).is_none() {
+                return Err(format!(
+                    "Runner {} uses undefined attribute {}",
+                    runner.name, attribute
                 ));
             }
         }

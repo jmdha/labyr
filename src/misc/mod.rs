@@ -54,3 +54,21 @@ pub mod abs_path {
         Ok(path.to_path_buf())
     }
 }
+
+pub mod regex_pattern {
+    use log::trace;
+    use regex::Regex;
+    use serde::{de, Deserialize, Deserializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Regex, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: String = String::deserialize(deserializer)?;
+        trace!("Parsing regex: {}", &s);
+        let pattern: Regex = Regex::new(&s).map_err(|e| {
+            de::Error::custom(&format!("Failed to parse regex {} with error: {}", &s, e))
+        })?;
+        Ok(pattern)
+    }
+}

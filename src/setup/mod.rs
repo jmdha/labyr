@@ -1,5 +1,5 @@
 pub mod instance;
-mod suite;
+pub mod suite;
 
 use crate::{setup::instance::Instance, Result};
 use log::trace;
