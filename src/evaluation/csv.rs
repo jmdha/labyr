@@ -3,7 +3,7 @@ use crate::Result;
 use log::trace;
 use std::{collections::HashSet, fs, path::PathBuf};
 
-pub(super) fn collect_csvs(out_dir: &PathBuf, instance: &Instance) -> Result<()> {
+pub fn collect(out_dir: &PathBuf, instance: &Instance) -> Result<()> {
     let csvs: HashSet<PathBuf> = instance
         .runs
         .iter()

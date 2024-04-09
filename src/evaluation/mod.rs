@@ -1,11 +1,17 @@
-mod csvs;
+mod csv;
+mod learn;
+mod solve;
 
-use self::csvs::collect_csvs;
 use crate::setup::instance::Instance;
 use crate::Result;
+use std::fs;
 use std::path::PathBuf;
 
 pub fn eval(out_dir: &PathBuf, instance: &Instance) -> Result<()> {
-    collect_csvs(out_dir, instance)?;
+    fs::create_dir_all(out_dir)
+        .map_err(|e| format!("Failed to create output dir with error: {}", e))?;
+    csv::collect(out_dir, instance)?;
+    learn::collect(out_dir, instance)?;
+    solve::collect(out_dir, instance)?;
     Ok(())
 }
