@@ -18,7 +18,7 @@ log = "0.4.20"
 once_cell = "1.19.0"
 path-absolutize = "3.1.1"
 serde = { version = "1.0.196", features = ["derive"] }
-mktemp = "0.5.1"
+tempfile = "3"
 toml = "0.8.9"
 pretty-duration = "0.1.1"
 walkdir = "2.5.0"

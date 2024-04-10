@@ -1,4 +1,5 @@
 mod local;
+mod slurm;
 
 use crate::setup::instance::Instance;
 use crate::Result;
@@ -14,6 +15,6 @@ pub enum ExecutionKind {
 pub fn execute(instance: Instance, kind: ExecutionKind, threads: usize) -> Result<()> {
     match kind {
         ExecutionKind::Local => local::execute(instance, threads),
-        ExecutionKind::Slurm => todo!(),
+        ExecutionKind::Slurm => slurm::execute(instance, threads),
     }
 }
