@@ -5,6 +5,8 @@ use std::{env, fs, path::PathBuf, process::Command};
 
 #[derive(Debug, Clone)]
 pub struct Instance {
+    pub learn_dir: PathBuf,
+    pub solve_dir: PathBuf,
     pub runners: Vec<Runner>,
     pub tasks: Vec<Task>,
     pub attributes: Vec<Attribute>,
@@ -182,6 +184,8 @@ pub fn generate(suite: Suite) -> Result<Instance> {
         tasks.push(Task { name, learn, solve })
     }
     Ok(Instance {
+        learn_dir,
+        solve_dir,
         runners,
         tasks,
         attributes,
