@@ -9,7 +9,7 @@ use execution::ExecutionKind;
 use log::{info, trace};
 use path_absolutize::Absolutize;
 use std::{fs, path::PathBuf, thread::available_parallelism};
-use tempfile::{tempdir, tempdir_in};
+use tempfile::tempdir_in;
 
 pub type Result<T> = std::result::Result<T, String>;
 
