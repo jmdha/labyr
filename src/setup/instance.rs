@@ -7,6 +7,8 @@ use std::{env, fs, path::PathBuf, process::Command};
 pub struct Instance {
     pub learn_dir: PathBuf,
     pub solve_dir: PathBuf,
+    pub learn_mem_limit: Option<usize>,
+    pub solve_mem_limit: Option<usize>,
     pub runners: Vec<Runner>,
     pub tasks: Vec<Task>,
     pub attributes: Vec<Attribute>,
@@ -186,6 +188,8 @@ pub fn generate(suite: Suite) -> Result<Instance> {
     Ok(Instance {
         learn_dir,
         solve_dir,
+        learn_mem_limit: suite.memory_limit_learn,
+        solve_mem_limit: suite.memory_limit_solve,
         runners,
         tasks,
         attributes,

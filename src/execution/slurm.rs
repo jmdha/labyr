@@ -5,13 +5,13 @@ use std::path::PathBuf;
 use std::process::Command;
 use tempfile::NamedTempFile;
 
-pub fn execute(instance: Instance, _: usize) -> Result<()> {
-    {
-        let executer = generate_executer(&instance.learn_dir)?;
+pub fn execute(instance: Instance) -> Result<()> {
+    if instance.runs.iter().any(|r| r.kind == RunKind::Learner) {
+        let executer = generate_executer(&instance.learn_dir, instance.learn_mem_limit)?;
         let _ = execute_learn(&instance, &executer.path().to_path_buf());
     }
-    {
-        let executer = generate_executer(&instance.solve_dir)?;
+    if instance.runs.iter().any(|r| r.kind != RunKind::Learner) {
+        let executer = generate_executer(&instance.solve_dir, instance.solve_mem_limit)?;
         let _ = execute_solve(&instance, &executer.path().to_path_buf());
     }
     Ok(())
@@ -25,6 +25,7 @@ fn execute_learn(instance: &Instance, executer: &PathBuf) -> Result<()> {
             .iter()
             .filter(|r| r.kind == RunKind::Learner)
             .count()
+            - 1
     );
     let _ = Command::new("sbatch")
         .args([
@@ -45,6 +46,7 @@ fn execute_solve(instance: &Instance, executer: &PathBuf) -> Result<()> {
             .iter()
             .filter(|r| r.kind != RunKind::Learner)
             .count()
+            - 1
     );
     let _ = Command::new("sbatch")
         .args([
@@ -57,7 +59,7 @@ fn execute_solve(instance: &Instance, executer: &PathBuf) -> Result<()> {
     Ok(())
 }
 
-fn generate_executer(dir: &PathBuf) -> Result<NamedTempFile> {
+fn generate_executer(dir: &PathBuf, mem_limit: Option<usize>) -> Result<NamedTempFile> {
     let mut file = NamedTempFile::new_in(dir).map_err(|e| {
         format!(
             "Failed to generate slurm executer temp file with error: {}",
@@ -66,7 +68,14 @@ fn generate_executer(dir: &PathBuf) -> Result<NamedTempFile> {
     })?;
 
     let _ = writeln!(file, "#!/bin/bash\n");
-    let _ = writeln!(file, "#SBATCH --mem=16G\n");
+    let _ = writeln!(
+        file,
+        "#SBATCH --mem={}G\n",
+        match mem_limit {
+            Some(lim) => lim.div_ceil(999),
+            None => 16,
+        }
+    );
     let _ = writeln!(
         file,
         "DIR={}/${{SLURM_ARRAY_TASK_ID}}\n",
