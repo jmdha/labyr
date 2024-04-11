@@ -23,7 +23,7 @@ pub fn collect(out_dir: &PathBuf, instance: &Instance) -> Result<()> {
         })
         .collect::<Vec<&Attribute>>();
     let pattern_names = pattern_names(attributes);
-    let _ = file.write(b"domain,learner,exit_code");
+    let _ = file.write(b"domain,problem,name,exit_code");
     if !pattern_names.is_empty() {
         let _ = file.write(format!(",{}", pattern_names.join(",")).as_bytes());
     }
