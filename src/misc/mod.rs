@@ -4,14 +4,14 @@ pub mod path_set {
     use log::trace;
     use path_absolutize::Absolutize;
     use serde::{de, Deserialize, Deserializer};
-    use std::{collections::HashSet, path::PathBuf};
+    use std::path::PathBuf;
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<PathBuf>, D::Error>
     where
         D: Deserializer<'de>,
     {
         let s: Vec<String> = Vec::deserialize(deserializer)?;
-        let mut paths: HashSet<PathBuf> = HashSet::new();
+        let mut paths: Vec<PathBuf> = Vec::new();
         for s in s.into_iter() {
             let globbed = glob(&s).map_err(|e| {
                 de::Error::custom(&format!("Failed to glob {} with error: {}", s, e))
@@ -27,10 +27,12 @@ pub mod path_set {
                         path, s, e
                     ))
                 })?;
-                paths.insert(path.to_path_buf());
+                if !paths.contains(&path.to_path_buf()) {
+                    paths.push(path.to_path_buf());
+                }
             }
         }
-        Ok(paths.into_iter().collect())
+        Ok(paths)
     }
 }
 
