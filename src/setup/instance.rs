@@ -58,6 +58,7 @@ pub fn generate(suite: Suite) -> Result<Instance> {
         for (learner_index, learner) in suite.learners().iter().enumerate() {
             let dir = learn_dir.join(format!("{}", i));
             let mut args = learner.args.clone();
+            args.push(task.name.to_owned());
             args.push(
                 task.domain
                     .to_str()
