@@ -17,3 +17,5 @@ tempfile = "3"
 toml = "0.8.9"
 pretty-duration = "0.1.1"
 regex = "1.10.4"
+tokio = { version = "1.37", features = ["full"] }
+anyhow = "1.0.83"
