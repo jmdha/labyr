@@ -11,9 +11,9 @@ use std::path::PathBuf;
 
 pub fn eval(out_dir: &PathBuf, instance: &Instance) -> Result<()> {
     fs::create_dir_all(out_dir)?;
-    csv::collect(out_dir, instance)?;
-    learn::collect(out_dir, instance)?;
-    solve::collect(out_dir, instance)?;
+    let _ = csv::collect(out_dir, instance);
+    let _ = learn::collect(out_dir, instance);
+    let _ = solve::collect(out_dir, instance);
     Ok(())
 }
 
