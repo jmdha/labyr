@@ -2,7 +2,7 @@ mod local;
 mod slurm;
 
 use crate::setup::instance::Instance;
-use crate::Result;
+use anyhow::Result;
 use clap::ValueEnum;
 
 #[derive(Debug, Copy, Clone, PartialEq, Default, ValueEnum)]

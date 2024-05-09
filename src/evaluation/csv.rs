@@ -1,5 +1,5 @@
 use crate::setup::instance::Instance;
-use crate::Result;
+use anyhow::Result;
 use log::trace;
 use std::{collections::HashSet, fs, path::PathBuf};
 
@@ -18,8 +18,7 @@ pub fn collect(out_dir: &PathBuf, instance: &Instance) -> Result<()> {
                 continue;
             }
             trace!("Reading csv: {:?}", csv_loc);
-            let csv_content = fs::read_to_string(&csv_loc)
-                .map_err(|e| format!("Failed to read csv {:?} with error: {}", csv_loc, e))?;
+            let csv_content = fs::read_to_string(&csv_loc)?;
             let lines: Vec<String> = csv_content.lines().map(|l| l.to_string()).collect();
             if lines.is_empty() {
                 continue;
@@ -33,18 +32,12 @@ pub fn collect(out_dir: &PathBuf, instance: &Instance) -> Result<()> {
         }
         let csv_out = out_dir.join(csv);
         if let Some(dir) = csv_out.parent() {
-            fs::create_dir_all(dir).map_err(|e| {
-                format!(
-                    "Failed to create csv dirs for csv {:?} with error: {}",
-                    csv_out, e
-                )
-            })?;
+            fs::create_dir_all(dir)?;
         }
         fs::write(
             &csv_out,
             content.into_iter().collect::<Vec<String>>().join("\n"),
-        )
-        .map_err(|e| format!("Failed to write csv {:?} with error: {}", csv_out, e))?;
+        )?;
     }
     Ok(())
 }

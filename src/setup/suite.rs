@@ -1,7 +1,7 @@
 use crate::misc::abs_path;
 use crate::misc::path_set;
 use crate::misc::regex_pattern;
-use crate::Result;
+use anyhow::Result;
 use log::info;
 use regex::Regex;
 use std::path::PathBuf;
@@ -110,17 +110,16 @@ impl Suite {
 }
 
 pub fn parse(content: &str) -> Result<Suite> {
-    let suite: Suite =
-        toml::from_str(content).map_err(|e| format!("Failed to parse suite file: {}", e))?;
+    let suite: Suite = toml::from_str(content)?;
 
     // Checking whether any runner dependency is undefined
     for runner in suite.runners.iter() {
         if let Some(depends) = &runner.depends {
             if suite.get_runner(&depends).is_none() {
-                return Err(format!(
+                panic!(
                     "Runner {} depends on undefined runner {}",
                     runner.name, depends
-                ));
+                );
             }
         }
     }
@@ -129,10 +128,10 @@ pub fn parse(content: &str) -> Result<Suite> {
     for runner in suite.runners.iter() {
         if let Some(attribute) = &runner.attribute {
             if suite.get_attribute(&attribute).is_none() {
-                return Err(format!(
+                panic!(
                     "Runner {} uses undefined attribute {}",
                     runner.name, attribute
-                ));
+                );
             }
         }
     }
@@ -140,13 +139,13 @@ pub fn parse(content: &str) -> Result<Suite> {
     // Checking whether tasks have problems according to the defined runners
     for task in suite.tasks.iter() {
         if task.learn.is_empty() && suite.learner_count() > 0 {
-            return Err(format!("Task {} has no learn problems", task.name));
+            panic!("Task {} has no learn problems", task.name);
         }
         if task.solve.is_empty() && suite.solver_count() > 0 {
-            return Err(format!("Task {} has no solve problems", task.name));
+            panic!("Task {} has no solve problems", task.name);
         }
         if task.learn.is_empty() && task.solve.is_empty() {
-            return Err(format!("Task {} has no problems", task.name));
+            panic!("Task {} has no problems", task.name);
         }
     }
 

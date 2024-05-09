@@ -1,5 +1,5 @@
 use super::suite::{Attribute, RunnerKind, Suite};
-use crate::Result;
+use anyhow::Result;
 use log::trace;
 use std::{env, fs, path::PathBuf, process::Command};
 
@@ -48,7 +48,7 @@ pub struct Run {
 }
 
 pub fn generate(suite: Suite) -> Result<Instance> {
-    let working_dir = env::current_dir().map_err(|e| format!("No working dir: {}", e))?;
+    let working_dir = env::current_dir()?;
     let learn_dir = working_dir.join("learn");
     let solve_dir = working_dir.join("solve");
     let mut runs: Vec<Run> = vec![];
@@ -59,19 +59,9 @@ pub fn generate(suite: Suite) -> Result<Instance> {
             let dir = learn_dir.join(format!("{}", i));
             let mut args = learner.args.clone();
             args.push(task.name.to_owned());
-            args.push(
-                task.domain
-                    .to_str()
-                    .ok_or(format!("Failed to convert {:?} into a string", task.domain))?
-                    .to_owned(),
-            );
+            args.push(task.domain.to_string_lossy().to_string());
             for problem in task.learn.iter() {
-                args.push(
-                    problem
-                        .to_str()
-                        .ok_or(format!("Failed to convert {:?} into a string", problem))?
-                        .to_owned(),
-                );
+                args.push(problem.to_string_lossy().to_string());
             }
             let exe = generate_script(
                 &dir,
@@ -111,18 +101,8 @@ pub fn generate(suite: Suite) -> Result<Instance> {
                 if let Some(depends) = depends {
                     args.push(runs[depends].dir.to_string_lossy().to_string());
                 }
-                args.push(
-                    task.domain
-                        .to_str()
-                        .ok_or(format!("Failed to convert {:?} into a string", task.domain))?
-                        .to_owned(),
-                );
-                args.push(
-                    problem
-                        .to_str()
-                        .ok_or(format!("Failed to convert {:?} into a string", problem))?
-                        .to_owned(),
-                );
+                args.push(task.domain.to_string_lossy().to_string());
+                args.push(problem.to_string_lossy().to_string());
                 let exe = generate_script(
                     &dir,
                     &solver.path,
@@ -167,20 +147,18 @@ pub fn generate(suite: Suite) -> Result<Instance> {
         for p in task.learn.into_iter() {
             learn.push(
                 p.file_stem()
-                    .ok_or(format!("Failed to get name of file {:?}", p))?
-                    .to_str()
-                    .ok_or(format!("Failed to convert path {:?} to string", p))?
-                    .to_owned(),
+                    .expect(&format!("problem {:?} has no name", p))
+                    .to_string_lossy()
+                    .to_string(),
             );
         }
 
         for p in task.solve.into_iter() {
             solve.push(
                 p.file_stem()
-                    .ok_or(format!("Failed to get name of file {:?}", p))?
-                    .to_str()
-                    .ok_or(format!("Failed to convert path {:?} to string", p))?
-                    .to_owned(),
+                    .expect(&format!("problem {:?} has no name", p))
+                    .to_string_lossy()
+                    .to_string(),
             );
         }
 
@@ -205,8 +183,7 @@ fn generate_script(
     time_limit: Option<usize>,
     memory_limit: Option<usize>,
 ) -> Result<PathBuf> {
-    fs::create_dir_all(&dir)
-        .map_err(|e| format!("Failed to create dir {:?} with error: {}", dir, e))?;
+    fs::create_dir_all(&dir)?;
     let mut content = "#!/bin/bash\n".to_owned();
     if let Some(mem) = memory_limit {
         content.push_str(&format!("ulimit -v {}\n", mem * 1000));
@@ -217,8 +194,7 @@ fn generate_script(
     }
     command.push_str(&format!(
         "{} out{}",
-        exe.to_str()
-            .ok_or(format!("Failed to convert path {:?} to string", exe))?,
+        exe.to_string_lossy(),
         args.iter()
             .map(|arg| format!(" {}", arg))
             .collect::<String>()
@@ -226,12 +202,10 @@ fn generate_script(
     content.push_str(&format!("$(eval \"{}\">log)\n", command));
     content.push_str(&format!("echo $? > exit_code"));
     let runner_path = dir.join("runner.sh");
-    fs::write(&runner_path, content)
-        .map_err(|e| format!("Failed to write script to file with error: {}", e))?;
+    fs::write(&runner_path, content)?;
     let mut cmd = Command::new("chmod");
     cmd.arg("u+x");
     cmd.arg(&runner_path);
-    cmd.status()
-        .map_err(|e| format!("Failed to give rights to script with error: {}", e))?;
+    cmd.status()?;
     Ok(runner_path)
 }

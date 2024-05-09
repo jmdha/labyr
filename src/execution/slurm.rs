@@ -1,5 +1,5 @@
 use crate::setup::instance::{Instance, RunKind};
-use crate::Result;
+use anyhow::Result;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
@@ -60,12 +60,7 @@ fn execute_solve(instance: &Instance, executer: &PathBuf) -> Result<()> {
 }
 
 fn generate_executer(dir: &PathBuf, mem_limit: Option<usize>) -> Result<NamedTempFile> {
-    let mut file = NamedTempFile::new_in(dir).map_err(|e| {
-        format!(
-            "Failed to generate slurm executer temp file with error: {}",
-            e
-        )
-    })?;
+    let mut file = NamedTempFile::new_in(dir)?;
 
     let _ = writeln!(file, "#!/bin/bash\n");
     let _ = writeln!(

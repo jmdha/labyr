@@ -4,14 +4,13 @@ mod misc;
 mod setup;
 
 use crate::misc::logging;
+use anyhow::Result;
 use clap::Parser;
 use execution::ExecutionKind;
 use log::{info, trace};
 use path_absolutize::Absolutize;
 use std::{fs, path::PathBuf, thread::available_parallelism};
 use tempfile::tempdir_in;
-
-pub type Result<T> = std::result::Result<T, String>;
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -44,21 +43,10 @@ fn main() -> Result<()> {
     logging::init();
     trace!("Reading args");
     let args = Args::parse();
-    let out_dir = args
-        .out
-        .absolutize()
-        .map_err(|e| {
-            format!(
-                "Failed to absolutize out dir {:?} with error: {}",
-                args.out, e
-            )
-        })?
-        .to_path_buf();
+    let out_dir = args.out.absolutize()?.to_path_buf();
     trace!("Creating work dir");
-    fs::create_dir_all(&args.work_dir)
-        .map_err(|e| format!("Failed to create work dir with error: {}", e))?;
-    let temp_dir: tempfile::TempDir = tempdir_in(&args.work_dir)
-        .map_err(|e| format!("Failed to create temp dir with error: {}", e))?;
+    fs::create_dir_all(&args.work_dir)?;
+    let temp_dir: tempfile::TempDir = tempdir_in(&args.work_dir)?;
     let result = _main(&args, &temp_dir.path().to_path_buf(), &out_dir);
     if args.keep_working_dir {
         trace!("Releasing temp dir");
@@ -70,17 +58,11 @@ fn main() -> Result<()> {
 fn _main(args: &Args, temp_dir: &PathBuf, out_dir: &PathBuf) -> Result<()> {
     trace!("Determining number of threads");
     let threads = match args.threads {
-        0 => available_parallelism()
-            .map_err(|e| format!("Failed to get available threads: {}", e))?
-            .get(),
+        0 => available_parallelism()?.get(),
         _ => args.threads,
     };
     info!("Thread count: {}", threads);
-    let suite_path = args
-        .suite
-        .absolutize()
-        .map_err(|e| format!("Failed to get absolute path of suite: {}", e))?
-        .to_path_buf();
+    let suite_path = args.suite.absolutize()?.to_path_buf();
     trace!("Generating instance");
     let instance = setup::run(&temp_dir, &suite_path)?;
     trace!("Executing instance");

@@ -4,14 +4,13 @@ mod solve;
 
 use crate::setup::instance::Instance;
 use crate::setup::suite::Attribute;
-use crate::Result;
+use anyhow::Result;
 use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 
 pub fn eval(out_dir: &PathBuf, instance: &Instance) -> Result<()> {
-    fs::create_dir_all(out_dir)
-        .map_err(|e| format!("Failed to create output dir with error: {}", e))?;
+    fs::create_dir_all(out_dir)?;
     csv::collect(out_dir, instance)?;
     learn::collect(out_dir, instance)?;
     solve::collect(out_dir, instance)?;

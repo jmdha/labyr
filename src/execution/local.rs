@@ -1,6 +1,6 @@
 use crate::misc::logging::ProgressBar;
 use crate::setup::instance::{Instance, Run, RunKind};
-use crate::Result;
+use anyhow::Result;
 use log::{info, trace};
 use pretty_duration::pretty_duration;
 use std::path::PathBuf;
