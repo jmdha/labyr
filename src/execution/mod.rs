@@ -1,20 +1,23 @@
 mod local;
-mod slurm;
 
-use crate::setup::instance::Instance;
 use anyhow::Result;
 use clap::ValueEnum;
+
+use crate::{instance::Instance, register::Register};
 
 #[derive(Debug, Copy, Clone, PartialEq, Default, ValueEnum)]
 pub enum ExecutionKind {
     #[default]
     Local,
-    Slurm,
 }
 
-pub fn execute(instance: Instance, kind: ExecutionKind, threads: usize) -> Result<()> {
+pub fn execute(
+    register: &mut Register,
+    instances: Vec<Instance>,
+    kind: ExecutionKind,
+) -> Result<()> {
+    println!("execution method: {:?}", kind);
     match kind {
-        ExecutionKind::Local => local::execute(instance, threads),
-        ExecutionKind::Slurm => slurm::execute(instance),
+        ExecutionKind::Local => local::execute(register, instances),
     }
 }

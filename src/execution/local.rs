@@ -1,116 +1,52 @@
-use crate::misc::logging::ProgressBar;
-use crate::setup::instance::{Instance, Run, RunKind};
+use crate::{instance::Instance, register::Register};
 use anyhow::Result;
-use log::{info, trace};
-use pretty_duration::pretty_duration;
-use std::path::PathBuf;
-use std::process::Command;
-use std::sync::{mpsc, Arc, Mutex};
-use std::thread::{self, sleep};
-use std::time::{Duration, Instant};
+use rayon::iter::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
+use std::{path::PathBuf, process::Command, sync::Mutex, time::Instant};
 
-#[derive(Clone, PartialEq, Eq)]
-enum State {
-    Unprocessed,
-    Processing,
-    Processed,
-}
-
-pub fn execute(instance: Instance, threads: usize) -> Result<()> {
-    let runs = Arc::new(Mutex::new(
-        instance
-            .runs
-            .iter()
-            .cloned()
-            .zip(vec![State::Unprocessed; instance.runs.len()].into_iter())
-            .collect::<Vec<(Run, State)>>(),
-    ));
-    let pb = ProgressBar::new(runs.lock().unwrap().len());
-    let (tx, rx) = mpsc::channel();
-    for n in 0..threads {
-        let tx = tx.clone();
-        let runs = runs.clone();
-        thread::spawn(move || loop {
-            let run = {
-                let mut runs = runs.lock().unwrap();
-                let run = runs
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(i, (run, state))| match state {
-                        State::Unprocessed => Some((i, run)),
-                        _ => None,
-                    })
-                    .find(|(_, run)| match run.kind {
-                        RunKind::Learner => true,
-                        RunKind::Solver {
-                            problem_index: _,
-                            depends,
-                        } => {
-                            if let Some(depends) = depends {
-                                runs[depends].1 == State::Processed
-                            } else {
-                                true
-                            }
-                        }
-                    })
-                    .map(|(i, run)| (i.to_owned(), run.to_owned()));
-                if let Some((i, _)) = run {
-                    runs[i].1 = State::Processing;
-                }
-                run
-            };
-            if let Some((i, run)) = run {
-                let _ = tx.send((n, Some(i)));
-                let _ = _execute(&run.dir, &run.exe);
-                runs.lock().unwrap()[i].1 = State::Processed;
-            } else {
-                let _ = tx.send((n, None));
-                if runs
-                    .lock()
-                    .unwrap()
-                    .iter()
-                    .all(|(_, state)| state != &State::Unprocessed)
-                {
-                    break;
-                } else {
-                    sleep(Duration::from_millis(50));
-                }
+pub fn execute(register: &mut Register, instances: Vec<Instance>) -> Result<()> {
+    println!("executing learners...");
+    let register = Mutex::new(register);
+    instances
+        .par_iter()
+        .filter_map(|i| i.learn.as_ref())
+        .for_each(|learn| {
+            if _execute(&learn.dir, &learn.path).is_ok() {
+                let mut register = register.lock().unwrap();
+                register.register_learn(learn);
             }
         });
-    }
-    drop(tx);
-    while let Ok((_, i)) = rx.recv() {
-        if let Some(_) = i {
-            pb.inc();
-        }
-        let msg: String = runs
-            .lock()
-            .unwrap()
-            .iter()
-            .enumerate()
-            .filter_map(|(i, (_, state))| match state {
-                State::Processing => Some(i.to_string()),
-                _ => None,
-            })
-            .collect::<Vec<String>>()
-            .join(", ");
-        pb.msg(msg);
-    }
+    println!("executing solvers...");
+    instances
+        .iter()
+        .filter_map(|instance| instance.solve.as_ref())
+        .flat_map(|s| s)
+        .par_bridge()
+        .for_each(|solve| {
+            if _execute(&solve.dir, &solve.path).is_ok() {
+                let mut register = register.lock().unwrap();
+                register.register_solve(solve);
+            }
+        });
     Ok(())
 }
 
-fn _execute(dir: &PathBuf, exe: &PathBuf) -> Result<()> {
-    let dir_name = dir.file_stem().expect("Could not retrieve name of dir");
-    let mut command = Command::new(exe);
-    command.current_dir(dir);
-    trace!("Running command: {:?}", command);
+pub fn _execute(dir: &PathBuf, exe: &PathBuf) -> Result<()> {
+    println!("executing {:?}...", exe);
     let t = Instant::now();
-    let _ = command.output().expect("Failed to run command");
-    let elapsed = t.elapsed();
-    info!(
-        "{} - {}",
-        dir_name.to_str().expect("Could not convert name to string"),
-        pretty_duration(&elapsed, None),
-    );
+    let out = Command::new(exe).current_dir(dir).output();
+    match out {
+        Ok(o) => println!(
+            "exectuion of {:?} finished: {} - {}s",
+            exe,
+            o.status,
+            t.elapsed().as_secs()
+        ),
+        Err(e) => println!(
+            "execution of {:?} failed: {} - {}s",
+            exe,
+            e,
+            t.elapsed().as_secs()
+        ),
+    };
     Ok(())
 }

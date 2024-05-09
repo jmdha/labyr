@@ -1,16 +1,17 @@
-mod evaluation;
 mod execution;
+mod instance;
 mod misc;
-mod setup;
+mod register;
+mod suite;
 
-use crate::misc::logging;
 use anyhow::Result;
 use clap::Parser;
 use execution::ExecutionKind;
-use log::{info, trace};
 use path_absolutize::Absolutize;
 use std::{fs, path::PathBuf, thread::available_parallelism};
 use tempfile::tempdir_in;
+
+use crate::register::Register;
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -40,33 +41,56 @@ struct Args {
 }
 
 fn main() -> Result<()> {
-    logging::init();
-    trace!("Reading args");
+    println!("reading args...");
     let args = Args::parse();
+    println!("finding out dir...");
     let out_dir = args.out.absolutize()?.to_path_buf();
-    trace!("Creating work dir");
+    println!("creating work dir...");
     fs::create_dir_all(&args.work_dir)?;
+    println!("creating temp dir...");
     let temp_dir: tempfile::TempDir = tempdir_in(&args.work_dir)?;
-    let result = _main(&args, &temp_dir.path().to_path_buf(), &out_dir);
+    let result = _main(
+        &args,
+        &temp_dir.path().to_path_buf(),
+        &out_dir,
+        args.keep_working_dir,
+    );
     if args.keep_working_dir {
-        trace!("Releasing temp dir");
+        println!("releasing temp dir...");
         let _ = temp_dir.into_path();
     }
     result
 }
 
-fn _main(args: &Args, temp_dir: &PathBuf, out_dir: &PathBuf) -> Result<()> {
-    trace!("Determining number of threads");
+fn _main(args: &Args, temp_dir: &PathBuf, out_dir: &PathBuf, keep_dirs: bool) -> Result<()> {
+    println!("determining number of threads...");
     let threads = match args.threads {
         0 => available_parallelism()?.get(),
         _ => args.threads,
     };
-    info!("Thread count: {}", threads);
+    println!("thread count: {}", threads);
+    println!("building thread pool...");
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build_global()
+        .unwrap();
+    println!("finding suite...");
     let suite_path = args.suite.absolutize()?.to_path_buf();
-    trace!("Generating instance");
-    let instance = setup::run(&temp_dir, &suite_path)?;
-    trace!("Executing instance");
-    execution::execute(instance.to_owned(), args.execution_kind, threads)?;
-    evaluation::eval(&out_dir, &instance)?;
+    println!("loading suite...");
+    suite::load(&suite_path)?;
+    println!("generating instances...");
+    let instances = instance::generate(
+        &suite_path.parent().expect("suite in no dir?").to_path_buf(),
+        suite::get_suite(),
+        temp_dir,
+    )?;
+    println!("executing instances...");
+    let register = {
+        let mut register = Register::default();
+        execution::execute(&mut register, instances, args.execution_kind)?;
+        register
+    };
+    println!("exporting to {:?}...", out_dir);
+    register.export(out_dir)?;
     Ok(())
 }
