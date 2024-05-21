@@ -199,7 +199,7 @@ fn generate_script(
             .map(|arg| format!(" {}", arg))
             .collect::<String>()
     ));
-    content.push_str(&format!("$(eval \"{}\">log)\n", command));
+    content.push_str(&format!("$(eval \"{}\"&>log)\n", command));
     content.push_str(&format!("echo $? > exit_code"));
     let runner_path = dir.join("runner.sh");
     fs::write(&runner_path, content)?;

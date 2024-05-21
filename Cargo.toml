@@ -1,6 +1,6 @@
 [package]
 name = "labyr"
-version = "0.2.5"
+version = "0.2.6"
 edition = "2021"
 authors = ["Jan M. D. Hansen"]
 license = "GPL-3.0-only"
