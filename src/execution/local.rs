@@ -83,13 +83,26 @@ pub fn execute(instance: Instance, threads: usize) -> Result<()> {
         if let Some(_) = i {
             pb.inc();
         }
+        let runs = runs.lock().unwrap();
         let msg: String = runs
-            .lock()
-            .unwrap()
             .iter()
-            .enumerate()
-            .filter_map(|(i, (_, state))| match state {
-                State::Processing => Some(i.to_string()),
+            .filter_map(|(run, state)| match state {
+                State::Processing => Some(match run.kind {
+                    RunKind::Learner => format!(
+                        "{} - {}",
+                        instance.runners.get(run.runner_index).unwrap().name,
+                        instance.tasks.get(run.task_index).unwrap().name
+                    ),
+                    RunKind::Solver {
+                        problem_index,
+                        depends: _,
+                    } => format!(
+                        "{} - {}.{}",
+                        instance.runners[run.runner_index].name,
+                        instance.tasks[run.task_index].name,
+                        instance.tasks[run.task_index].solve[problem_index]
+                    ),
+                }),
                 _ => None,
             })
             .collect::<Vec<String>>()
