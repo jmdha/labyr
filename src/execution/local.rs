@@ -89,15 +89,15 @@ pub fn execute(instance: Instance, threads: usize) -> Result<()> {
             .filter_map(|(run, state)| match state {
                 State::Processing => Some(match run.kind {
                     RunKind::Learner => format!(
-                        "{} - {}",
-                        instance.runners.get(run.runner_index).unwrap().name,
-                        instance.tasks.get(run.task_index).unwrap().name
+                        "{}.{}",
+                        instance.runners[run.runner_index].name,
+                        instance.tasks[run.task_index].name
                     ),
                     RunKind::Solver {
                         problem_index,
                         depends: _,
                     } => format!(
-                        "{} - {}.{}",
+                        "{}.{}.{}",
                         instance.runners[run.runner_index].name,
                         instance.tasks[run.task_index].name,
                         instance.tasks[run.task_index].solve[problem_index]
