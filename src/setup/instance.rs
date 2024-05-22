@@ -45,9 +45,10 @@ pub struct Run {
     pub runner_index: usize,
     pub task_index: usize,
     pub kind: RunKind,
+    pub skip: bool,
 }
 
-pub fn generate(suite: Suite) -> Result<Instance> {
+pub fn generate(suite: Suite, force_learn: bool, force_solve: bool) -> Result<Instance> {
     let working_dir = env::current_dir()?;
     let learn_dir = working_dir.join("learn");
     let solve_dir = working_dir.join("solve");
@@ -63,19 +64,26 @@ pub fn generate(suite: Suite) -> Result<Instance> {
             for problem in task.learn.iter() {
                 args.push(problem.to_string_lossy().to_string());
             }
-            let exe = generate_script(
-                &dir,
-                &learner.path,
-                &args,
-                suite.time_limit_learn,
-                suite.memory_limit_learn,
-            )?;
+            let (exe, skip) = match dir.join("exit_code").exists() {
+                true => (dir.join("runner.sh"), true),
+                false => (
+                    generate_script(
+                        &dir,
+                        &learner.path,
+                        &args,
+                        suite.time_limit_learn,
+                        suite.memory_limit_learn,
+                    )?,
+                    false,
+                ),
+            };
             runs.push(Run {
                 dir,
                 exe,
                 runner_index: learner_index,
                 task_index,
                 kind: RunKind::Learner,
+                skip: skip && !force_learn,
             });
             i += 1;
         }
@@ -103,13 +111,19 @@ pub fn generate(suite: Suite) -> Result<Instance> {
                 }
                 args.push(task.domain.to_string_lossy().to_string());
                 args.push(problem.to_string_lossy().to_string());
-                let exe = generate_script(
-                    &dir,
-                    &solver.path,
-                    &args,
-                    suite.time_limit_solve,
-                    suite.memory_limit_solve,
-                )?;
+                let (exe, skip) = match dir.join("exit_code").exists() {
+                    true => (dir.join("runner.sh"), true),
+                    false => (
+                        generate_script(
+                            &dir,
+                            &solver.path,
+                            &args,
+                            suite.time_limit_solve,
+                            suite.memory_limit_solve,
+                        )?,
+                        false,
+                    ),
+                };
                 runs.push(Run {
                     dir,
                     exe,
@@ -119,6 +133,7 @@ pub fn generate(suite: Suite) -> Result<Instance> {
                         problem_index,
                         depends,
                     },
+                    skip: skip && !force_solve && !force_learn,
                 });
 
                 i += 1;

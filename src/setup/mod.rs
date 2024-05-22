@@ -6,7 +6,12 @@ use anyhow::Result;
 use log::trace;
 use std::{env, fs, path::PathBuf};
 
-pub fn run(temp_dir: &PathBuf, suite_path: &PathBuf) -> Result<Instance> {
+pub fn run(
+    temp_dir: &PathBuf,
+    suite_path: &PathBuf,
+    force_learn: bool,
+    force_solve: bool,
+) -> Result<Instance> {
     trace!("Reading suite file");
     let suite_content = fs::read_to_string(suite_path)?;
     trace!("Changing working directory to {:?} parent", suite_path);
@@ -16,5 +21,5 @@ pub fn run(temp_dir: &PathBuf, suite_path: &PathBuf) -> Result<Instance> {
     trace!("Changing working directory to {:?}", temp_dir);
     env::set_current_dir(temp_dir)?;
     trace!("Generating instance");
-    instance::generate(suite)
+    instance::generate(suite, force_learn, force_solve)
 }

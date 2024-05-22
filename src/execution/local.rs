@@ -22,7 +22,16 @@ pub fn execute(instance: Instance, threads: usize) -> Result<()> {
             .runs
             .iter()
             .cloned()
-            .zip(vec![State::Unprocessed; instance.runs.len()].into_iter())
+            .zip(
+                instance
+                    .runs
+                    .iter()
+                    .map(|run| match run.skip {
+                        true => State::Processed,
+                        false => State::Unprocessed,
+                    })
+                    .collect::<Vec<_>>(),
+            )
             .collect::<Vec<(Run, State)>>(),
     ));
     let pb = ProgressBar::new(runs.lock().unwrap().len());
