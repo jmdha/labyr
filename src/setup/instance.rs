@@ -133,7 +133,12 @@ pub fn generate(suite: Suite, force_learn: bool, force_solve: bool) -> Result<In
                         problem_index,
                         depends,
                     },
-                    skip: skip && !force_solve && !force_learn,
+                    skip: skip
+                        && !force_solve
+                        && match depends {
+                            Some(d) => runs[d].skip,
+                            None => true,
+                        },
                 });
 
                 i += 1;
