@@ -78,34 +78,22 @@ impl Suite {
         self.tasks.iter().map(|r| r.name.as_str()).collect()
     }
     pub fn learner_count(&self) -> usize {
-        self.learners().len()
+        self.runners
+            .iter()
+            .filter(|r| r.kind == RunnerKind::Learn)
+            .count()
     }
     pub fn solver_count(&self) -> usize {
-        self.solvers().len()
+        self.runners
+            .iter()
+            .filter(|r| r.kind != RunnerKind::Learn)
+            .count()
     }
     pub fn total_problems_learn(&self) -> usize {
         self.tasks.iter().map(|t| t.learn.len()).sum()
     }
     pub fn total_problems_solve(&self) -> usize {
         self.tasks.iter().map(|t| t.solve.len()).sum()
-    }
-    pub fn learners(&self) -> Vec<&Runner> {
-        self.runners
-            .iter()
-            .filter(|r| match r.kind {
-                RunnerKind::Learn => true,
-                RunnerKind::Solve => false,
-            })
-            .collect()
-    }
-    pub fn solvers(&self) -> Vec<&Runner> {
-        self.runners
-            .iter()
-            .filter(|r| match r.kind {
-                RunnerKind::Learn => false,
-                RunnerKind::Solve => true,
-            })
-            .collect()
     }
 }
 

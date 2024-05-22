@@ -26,13 +26,7 @@ pub fn collect(out_dir: &PathBuf, instance: &Instance) -> Result<()> {
         let _ = file.write(format!(",{}", pattern_names.join(",")).as_bytes());
     }
     let _ = file.write(b"\n");
-    for run in instance.runs.iter().filter(|r| match r.kind {
-        RunKind::Learner => true,
-        RunKind::Solver {
-            problem_index: _,
-            depends: _,
-        } => false,
-    }) {
+    for run in instance.runs.iter().filter(|r| r.kind == RunKind::Learner) {
         let learner = &instance.runners[run.runner_index].name;
         let domain = &instance.tasks[run.task_index].name;
         let exit_code = fs::read_to_string(run.dir.join("exit_code"))

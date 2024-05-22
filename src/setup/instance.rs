@@ -56,7 +56,12 @@ pub fn generate(suite: Suite, force_learn: bool, force_solve: bool) -> Result<In
     trace!("Instantiating tasks");
     let mut i: usize = 0;
     for (task_index, task) in suite.tasks.iter().enumerate() {
-        for (learner_index, learner) in suite.learners().iter().enumerate() {
+        for (learner_index, learner) in suite
+            .runners
+            .iter()
+            .enumerate()
+            .filter(|(_, r)| r.kind == RunnerKind::Learn)
+        {
             let dir = learn_dir.join(format!("{}", i));
             let mut args = learner.args.clone();
             args.push(task.name.to_owned());
@@ -91,7 +96,12 @@ pub fn generate(suite: Suite, force_learn: bool, force_solve: bool) -> Result<In
     let mut i: usize = 0;
     for (task_index, task) in suite.tasks.iter().enumerate() {
         for (problem_index, problem) in task.solve.iter().enumerate() {
-            for (solver_index, solver) in suite.solvers().iter().enumerate() {
+            for (solver_index, solver) in suite
+                .runners
+                .iter()
+                .enumerate()
+                .filter(|(_, r)| r.kind != RunnerKind::Learn)
+            {
                 let dir = solve_dir.join(format!("{}", i));
                 let mut args = solver.args.clone();
                 let depends = match &solver.depends {
@@ -99,8 +109,8 @@ pub fn generate(suite: Suite, force_learn: bool, force_solve: bool) -> Result<In
                         runs.iter()
                             .position(|l| {
                                 task_index == l.task_index
-                                    && depends == &suite.learners()[l.runner_index].name
                                     && l.kind == RunKind::Learner
+                                    && depends == &suite.runners[l.runner_index].name
                             })
                             .unwrap(),
                     ),
@@ -127,7 +137,7 @@ pub fn generate(suite: Suite, force_learn: bool, force_solve: bool) -> Result<In
                 runs.push(Run {
                     dir,
                     exe,
-                    runner_index: solver_index + suite.learner_count(),
+                    runner_index: solver_index,
                     task_index,
                     kind: RunKind::Solver {
                         problem_index,
